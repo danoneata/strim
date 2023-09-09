@@ -82,6 +82,11 @@ FEATURE_EXTRACTORS = {
 }
 
 
+def get_group_name(sample):
+    key, i = sample["key-audio"]
+    return f"{key}-{i}"
+
+
 @click.command()
 @click.option("-m", "--model", "model_name", default="wav2vec2-xls-r-2b")
 @click.option("-d", "--dataset", "dataset_name", default="flickr8k")
@@ -107,11 +112,9 @@ def main(
     with h5py.File(path_hdf5, "a") as f:
         for i in tqdm(range(num_samples)):
             sample = dataset[i]
-            key, i = sample["key-audio"]
-            key_audio_str = f"{key}-{i}"
 
             try:
-                group = f.create_group(key_audio_str)
+                group = f.create_group(get_group_name(sample))
             except ValueError:
                 continue
 
