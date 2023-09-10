@@ -24,13 +24,14 @@ class HuggingFaceFeatureExtractor:
         self.model.to(self.device)
 
     def __call__(self, audio, sr):
+        max_length = 10 * sr
         inputs = self.feature_extractor(
             audio,
             sampling_rate=sr,
             return_tensors="pt",
+            max_length=max_length,
+            truncation=True,
             # padding=True,
-            # max_length=16_000,
-            # truncation=True,
         )
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         with torch.no_grad():
