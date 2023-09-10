@@ -123,9 +123,9 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
 
     train_loader = get_datapipe(
         dataset_name,
-        "dev",
-        h5py.File(h5_path_audio.format(audio_model_name, dataset_name, "dev"), "r"),
-        h5py.File(h5_path_image.format(image_model_name, dataset_name, "dev"), "r"),
+        "train",
+        h5py.File(h5_path_audio.format(audio_model_name, dataset_name, "train"), "r"),
+        h5py.File(h5_path_image.format(image_model_name, dataset_name, "train"), "r"),
     )
     valid_loader = get_datapipe(
         dataset_name,
