@@ -113,15 +113,19 @@ def main(
     with h5py.File(path_hdf5, "a") as f:
         for i in tqdm(range(num_samples)):
             sample = dataset[i]
+            group_name = get_group_name(sample)
 
             try:
-                group = f.create_group(get_group_name(sample))
+                group = f.create_group(group_name)
             except ValueError:
+                group = f[group_name]
+
+            if "audio-features" in group:
                 continue
 
             audio, sr = sf.read(sample["path-audio"])
-            audio = torch.from_numpy(audio).to(feature_extractor.device)
             assert sr == SAMPLING_RATE
+            audio = torch.from_numpy(audio).to(feature_extractor.device)
             audio_features = extract1(audio)
             group.create_dataset("audio-features", data=audio_features)
 
