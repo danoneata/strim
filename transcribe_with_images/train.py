@@ -1,5 +1,6 @@
 import pdb
 
+from functools import partial
 import click
 import h5py  # type: ignore
 import torch  # type: ignore
@@ -14,6 +15,10 @@ from ignite.utils import convert_tensor
 
 from transcribe_with_images.data import Flickr8kDataset
 from transcribe_with_images.scripts.extract_audio_features import get_group_name
+
+
+H5_PATH_AUDIO = "output/audio-features/{}-{}-{}.h5"
+H5_PATH_IMAGE = "output/image-captioner/{}-{}-{}.h5"
 
 
 class AudioToImageMapper(torch.nn.Module):
@@ -31,17 +36,28 @@ class AudioToImageMapper(torch.nn.Module):
         audio_feat, padding_mask = input
         B, _, _ = audio_feat.shape
         queries = self.queries.repeat(B, 1, 1)
-        try:
-            output = self.transformer(
-                src=audio_feat,
-                tgt=queries,
-                src_key_padding_mask=padding_mask,
-                memory_key_padding_mask=padding_mask,
-            )
-        except torch.cuda.OutOfMemoryError:
-            pdb.set_trace()
+        output = self.transformer(
+            src=audio_feat,
+            tgt=queries,
+            src_key_padding_mask=padding_mask,
+            memory_key_padding_mask=padding_mask,
+        )
         output = self.projection(output)
         return output
+
+
+def get_sample(dataset, audio_h5, image_h5, i):
+    max_audio_len = 600
+    sample = dataset[i]
+    path_audio = get_group_name(sample) + "/" + "audio-features"
+    path_image = sample["key-image"] + "/" + "image-features"
+    audio_feat = audio_h5[path_audio][...]
+    audio_feat = audio_feat[:max_audio_len]
+    image_feat = image_h5[path_image][...]
+    return {
+        "audio-feat": torch.tensor(audio_feat),
+        "image-feat": torch.tensor(image_feat),
+    }
 
 
 def get_datapipe(dataset_name, split, audio_h5, image_h5):
@@ -49,19 +65,6 @@ def get_datapipe(dataset_name, split, audio_h5, image_h5):
     dataset = Flickr8kDataset(split=split)
     batch_size = 32
     # Some audio files are very long. Truncate them to avoid out-of-memory errors.
-    max_audio_len = 600
-
-    def get_sample(i):
-        sample = dataset[i]
-        path_audio = get_group_name(sample) + "/" + "audio-features"
-        path_image = sample["key-image"] + "/" + "image-features"
-        audio_feat = audio_h5[path_audio][...]
-        audio_feat = audio_feat[:max_audio_len]
-        image_feat = image_h5[path_image][...]
-        return {
-            "audio-feat": torch.tensor(audio_feat),
-            "image-feat": torch.tensor(image_feat),
-        }
 
     def collate_fn(batch):
         audio_feats = [sample["audio-feat"] for sample in batch]
@@ -79,8 +82,9 @@ def get_datapipe(dataset_name, split, audio_h5, image_h5):
             "padding-mask": padding_mask,
         }
 
+    get_sample_1 = partial(get_sample, dataset, audio_h5, image_h5)
     datapipe = SequenceWrapper(range(len(dataset)))
-    datapipe = datapipe.map(get_sample)
+    datapipe = datapipe.map(get_sample_1)
 
     if split == "train":
         datapipe = datapipe.shuffle()
@@ -118,20 +122,17 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
     )
     model = model.to(device)
 
-    h5_path_audio = "output/audio-features/{}-{}-{}.h5"
-    h5_path_image = "output/image-captioner/{}-{}-{}.h5"
-
     train_loader = get_datapipe(
         dataset_name,
         "train",
-        h5py.File(h5_path_audio.format(audio_model_name, dataset_name, "train"), "r"),
-        h5py.File(h5_path_image.format(image_model_name, dataset_name, "train"), "r"),
+        h5py.File(H5_PATH_AUDIO.format(audio_model_name, dataset_name, "train"), "r"),
+        h5py.File(H5_PATH_IMAGE.format(image_model_name, dataset_name, "train"), "r"),
     )
     valid_loader = get_datapipe(
         dataset_name,
         "dev",
-        h5py.File(h5_path_audio.format(audio_model_name, dataset_name, "dev"), "r"),
-        h5py.File(h5_path_image.format(image_model_name, dataset_name, "dev"), "r"),
+        h5py.File(H5_PATH_AUDIO.format(audio_model_name, dataset_name, "dev"), "r"),
+        h5py.File(H5_PATH_IMAGE.format(image_model_name, dataset_name, "dev"), "r"),
     )
 
     criterion = torch.nn.MSELoss()
