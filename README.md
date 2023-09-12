@@ -1,4 +1,4 @@
-Extract visual features and generate image captions:
+Extract image features and generate image captions:
 ```bash
 for s in train dev test; do
     python transcribe_with_images/scripts/run_image_captioner.py --split $s
@@ -10,4 +10,9 @@ Extract audio features:
 for s in train dev test; do
     python transcribe_with_images/scripts/extract_audio_features.py --split $s
 done
+```
+
+Learn a mapping network from audio features to image features:
+```bash
+python transcribe_with_images/train.py -m tiny
 ```
