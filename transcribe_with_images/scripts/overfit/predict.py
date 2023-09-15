@@ -1,3 +1,4 @@
+import json
 import os
 import pdb
 
@@ -17,59 +18,23 @@ from transcribe_with_images.train import (
     MODELS,
     get_sample,
 )
+from transcribe_with_images.scripts.overfit.train import (
+    BATCH_SIZE,
+    NUM_BATCHES,
+    OUT_DIR,
+)
+from transcribe_with_images.predict import (
+    generate_caption,
+    get_epoch,
+)
 
 
-def generate(self, image_embeds, **generate_kwargs):
-    batch_size = image_embeds.size(0)
-    image_attention_mask = torch.ones(image_embeds.size()[:-1], dtype=torch.long).to(
-        image_embeds.device
-    )
-
-    input_ids = (
-        torch.LongTensor(
-            [[self.decoder_input_ids, self.config.text_config.eos_token_id]]
-        )
-        .repeat(batch_size, 1)
-        .to(image_embeds.device)
-    )
-
-    input_ids[:, 0] = self.config.text_config.bos_token_id
-    attention_mask = None
-
-    outputs = self.text_decoder.generate(
-        input_ids=input_ids[:, :-1],
-        eos_token_id=self.config.text_config.sep_token_id,
-        pad_token_id=self.config.text_config.pad_token_id,
-        attention_mask=attention_mask,
-        encoder_hidden_states=image_embeds,
-        encoder_attention_mask=image_attention_mask,
-        **generate_kwargs,
-    )
-
-    return outputs
-
-
-def generate_caption(model, preprocessor, image_embeds):
-    out = generate(model, image_embeds)
-    return preprocessor.decode(out[0], skip_special_tokens=True)
-
-
-def get_neg_loss(path: Path) -> float:
-    filename_without_ext = path.stem
-    *_, neg_loss = filename_without_ext.split("=")
-    return float(neg_loss)
-
-def get_epoch(path: Path) -> float:
-    filename_without_ext = path.stem
-    *_, epoch, _ = filename_without_ext.split("_")
-    return int(epoch)
-
-def get_model_path(image_model_name, audio_model_name, dataset_name, mapping_model_name):
-    folder = f"output/audio-to-image-mapper/{mapping_model_name}-{dataset_name}-{audio_model_name}-{image_model_name}"
+def get_model_path(image_model_name, audio_model_name, dataset_name, mapping_model_name, epoch):
+    folder = OUT_DIR / f"{mapping_model_name}-{dataset_name}-{audio_model_name}-{image_model_name}"
     folder = Path(folder)
     model_paths = [folder / f for f in os.listdir(folder)]
-    model_path = max(model_paths, key=get_epoch)
-    print(model_path)
+    model_paths = [p for p in model_paths if get_epoch(p) == epoch]
+    model_path, = model_paths
     return model_path
 
 
@@ -78,7 +43,8 @@ def get_model_path(image_model_name, audio_model_name, dataset_name, mapping_mod
 @click.option("-a", "--audio-model", "audio_model_name", default="wav2vec2-xls-r-2b")
 @click.option("-d", "--dataset", "dataset_name", default="flickr8k")
 @click.option("-m", "--mapping-model", "mapping_model_name")
-def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
+@click.option("-e", "--epoch", type=click.INT)
+def main(image_model_name, audio_model_name, dataset_name, mapping_model_name, epoch):
     device = "cuda"
     split = "train"
 
@@ -90,7 +56,7 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
         H5_PATH_IMAGE.format(image_model_name, dataset_name, split), "r"
     )
 
-    model_path = get_model_path(image_model_name, audio_model_name, dataset_name, mapping_model_name)
+    model_path = get_model_path(image_model_name, audio_model_name, dataset_name, mapping_model_name, epoch)
     model = AudioToImageMapper(
         dim_audio=1920,
         dim_image=768,
@@ -108,12 +74,12 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
     )
     image_captioning_model = image_captioning_model.to(device)
 
-    for i in range(32):
-        sample = get_sample(dataset, audio_h5, image_h5, i)
+    results = []
 
-        image_feat = sample["image-feat"]
-        image_feat = image_feat.to(device)
-        # image_feat = image_feat.unsqueeze(0)
+    # for i in range(NUM_BATCHES * BATCH_SIZE):
+    for i in range(32):
+        datum = dataset[i]
+        sample = get_sample(dataset, audio_h5, image_h5, i)
 
         audio_feat = sample["audio-feat"]
         audio_feat = audio_feat.to(device)
@@ -127,22 +93,26 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
         input = audio_feat, padding_mask
         image_feat_pred = model(input)
 
-        generated_caption_1 = generate_caption(
+        generated_caption = generate_caption(
             image_captioning_model,
             image_captioning_processor,
             image_feat_pred,
         )
-        generated_caption_2 = generate_caption(
-            image_captioning_model,
-            image_captioning_processor,
-            image_feat,
-        )
-        print(generated_caption_1)
-        print(generated_caption_2)
-        print()
+        print(generated_caption)
+
+        result = {
+            **datum,
+            "generated-caption": generated_caption,
+        }
+
+        results.append(result)
 
     audio_h5.close()
     image_h5.close()
+
+    name = f"{image_model_name}-{audio_model_name}-{dataset_name}-{mapping_model_name}-{epoch}"
+    with open(f"output/results/overfit/{name}.json", "w") as f:
+        json.dump(results, f)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,8 @@
 import pdb
 
 from functools import partial
+from pathlib import Path
+
 import click
 import h5py  # type: ignore
 import torch  # type: ignore
@@ -15,57 +17,23 @@ from ignite.metrics import Loss  # type: ignore
 from ignite.utils import convert_tensor
 
 from transcribe_with_images.data import Flickr8kDataset
-from transcribe_with_images.scripts.extract_audio_features import get_group_name
+from transcribe_with_images.train import (
+    AudioToImageMapper,
+    get_sample,
+    H5_PATH_AUDIO,
+    H5_PATH_IMAGE,
+    MODELS,
+)
 
 
-H5_PATH_AUDIO = "output/audio-features/{}-{}-{}.h5"
-H5_PATH_IMAGE = "output/image-captioner/{}-{}-{}.h5"
+NUM_BATCHES = 10
+BATCH_SIZE = 32
+OUT_DIR = Path("output/audio-to-image-mapper-overfit")
 
 
-
-class AudioToImageMapper(torch.nn.Module):
-    def __init__(self, dim_audio, dim_image, len_image_seq, **kwargs):
-        super().__init__()
-        self.transformer = torch.nn.Transformer(
-            d_model=dim_image,
-            batch_first=True,
-            **kwargs,
-        )
-        self.queries = torch.nn.Parameter(torch.randn(1, len_image_seq, dim_image))
-        self.projection = torch.nn.Linear(dim_audio, dim_image)
-
-    def forward(self, input):
-        audio_feat, padding_mask = input
-        audio_feat = self.projection(audio_feat)
-        B, _, _ = audio_feat.shape
-        queries = self.queries.repeat(B, 1, 1)
-        output = self.transformer(
-            src=audio_feat,
-            tgt=queries,
-            src_key_padding_mask=padding_mask,
-            memory_key_padding_mask=padding_mask,
-        )
-        return output
-
-
-def get_sample(dataset, audio_h5, image_h5, i):
-    max_audio_len = 600
-    sample = dataset[i]
-    path_audio = get_group_name(sample) + "/" + "audio-features"
-    path_image = sample["key-image"] + "/" + "image-features"
-    audio_feat = audio_h5[path_audio][...]
-    audio_feat = audio_feat[:max_audio_len]
-    image_feat = image_h5[path_image][...]
-    return {
-        "audio-feat": torch.tensor(audio_feat),
-        "image-feat": torch.tensor(image_feat),
-    }
-
-
-def get_datapipe(dataset_name, split, audio_h5, image_h5):
+def get_datapipe(dataset_name, use_as, audio_h5, image_h5):
     assert dataset_name == "flickr8k", "Only Flickr8k is supported for now"
-    dataset = Flickr8kDataset(split=split)
-    batch_size = 32
+    dataset = Flickr8kDataset(split="train")
     # Some audio files are very long. Truncate them to avoid out-of-memory errors.
 
     def collate_fn(batch):
@@ -86,40 +54,20 @@ def get_datapipe(dataset_name, split, audio_h5, image_h5):
 
     get_sample_1 = partial(get_sample, dataset, audio_h5, image_h5)
 
-    # datapipe = SequenceWrapper(range(32 * 10))
-    datapipe = SequenceWrapper(range(len(dataset)))
+    datapipe = SequenceWrapper(range(BATCH_SIZE * NUM_BATCHES))
     datapipe = datapipe.map(get_sample_1)
 
-    if split == "train":
+    if use_as == "train":
         datapipe = datapipe.shuffle()
         datapipe = datapipe.cycle()
     else:
         datapipe = datapipe.to_iter_datapipe()
-        datapipe = datapipe.header(batch_size * 16)
 
-    datapipe = datapipe.batch(batch_size)
+    datapipe = datapipe.batch(BATCH_SIZE)
     datapipe = datapipe.collate(collate_fn)
 
     return datapipe
 
-
-MODELS = {
-    "tiny": {
-        "num_encoder_layers": 1,
-        "num_decoder_layers": 1,
-        "dim_feedforward": 128,
-    },
-    "medium": {
-        "num_encoder_layers": 1,
-        "num_decoder_layers": 2,
-        "dim_feedforward": 512,
-    },
-    "large": {
-        "num_encoder_layers": 1,
-        "num_decoder_layers": 4,
-        "dim_feedforward": 768,
-    },
-}
 
 @click.command()
 @click.option("-i", "--image-model", "image_model_name", default="blip-base")
@@ -145,11 +93,11 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
     valid_loader = get_datapipe(
         dataset_name,
         "dev",
-        h5py.File(H5_PATH_AUDIO.format(audio_model_name, dataset_name, "dev"), "r"),
-        h5py.File(H5_PATH_IMAGE.format(image_model_name, dataset_name, "dev"), "r"),
+        h5py.File(H5_PATH_AUDIO.format(audio_model_name, dataset_name, "train"), "r"),
+        h5py.File(H5_PATH_IMAGE.format(image_model_name, dataset_name, "train"), "r"),
     )
 
-    lr = 4e-3
+    lr = 3e-4
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
@@ -180,19 +128,20 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
     log_interval = 10
     num_steps_per_epoch = 500
     num_epochs = 100
-    num_epochs_warmup = 5
-    num_steps = num_epochs * num_steps_per_epoch
-    warmup_duration = num_epochs_warmup * num_steps_per_epoch
 
-    torch_lr_scheduler = CosineAnnealingLR(optimizer, T_max=num_steps)
-    scheduler = create_lr_scheduler_with_warmup(
-        torch_lr_scheduler,
-        warmup_start_value=1e-6,
-        warmup_end_value=lr,
-        warmup_duration=warmup_duration,
-    )
+    # num_epochs_warmup = 5
+    # num_steps = num_epochs * num_steps_per_epoch
+    # warmup_duration = num_epochs_warmup * num_steps_per_epoch
 
-    trainer.add_event_handler(Events.ITERATION_STARTED, scheduler)
+    # torch_lr_scheduler = CosineAnnealingLR(optimizer, T_max=num_steps)
+    # scheduler = create_lr_scheduler_with_warmup(
+    #     torch_lr_scheduler,
+    #     warmup_start_value=1e-6,
+    #     warmup_end_value=lr,
+    #     warmup_duration=warmup_duration,
+    # )
+
+    # trainer.add_event_handler(Events.ITERATION_STARTED, scheduler)
 
     @trainer.on(Events.ITERATION_COMPLETED(every=log_interval))
     def log_training_loss(engine):
@@ -222,8 +171,8 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
         return -engine.state.metrics["loss"]
 
     model_checkpoint = ModelCheckpoint(
-        f"output/audio-to-image-mapper/{mapping_model_name}-{dataset_name}-{audio_model_name}-{image_model_name}",
-        n_saved=5,
+        OUTDIR / f"{mapping_model_name}-{dataset_name}-{audio_model_name}-{image_model_name}",
+        n_saved=None,
         filename_prefix="best",
         score_function=score_function,
         score_name="neg-loss",
