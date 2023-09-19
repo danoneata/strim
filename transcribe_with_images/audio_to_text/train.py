@@ -82,7 +82,7 @@ def get_audio_to_text_mapper(
         #     print(name, param.shape)
 
     tokenizer = AutoTokenizer.from_pretrained(decoder_name)
-    tokenizer.pad_token = "!"
+    tokenizer.pad_token = " "
 
     model.config.decoder_start_token_id = tokenizer.bos_token_id
     model.config.pad_token_id = tokenizer.pad_token_id
@@ -162,15 +162,15 @@ CONFIGS = {
         #     "name": "flickr8k",
         # },
         "training": {
-            "num_train_epochs": 50,
+            "num_train_epochs": 75,
             "per_device_train_batch_size": 32,
             "learning_rate": 4e-3,
             "gradient_accumulation_steps": 1,
             "fp16": False,
             # "save_strategy": "steps",
             # "logging_strategy": "steps",
-            "logging_steps": 10,
-            "save_total_limit": 50,
+            "logging_steps": 20,
+            "save_total_limit": 10,
             "eval_steps": 100,
             "evaluation_strategy": "steps",
             "output_dir": "output/audio-to-text-mapper/00",
