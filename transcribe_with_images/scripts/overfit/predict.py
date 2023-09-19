@@ -61,6 +61,7 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name, e
         dim_audio=1920,
         dim_image=768,
         len_image_seq=577,
+        # dropout=0.0,
         **MODELS[mapping_model_name],
     )
     model = model.to(device)
@@ -76,10 +77,27 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name, e
 
     results = []
 
-    # for i in range(NUM_BATCHES * BATCH_SIZE):
-    for i in range(32):
+    def compute_metric(x1, x2):
+        return torch.mean((x1 - x2) ** 2)
+
+    def set_to_train(model, name):
+        for m in model.modules():
+            if m.__class__.__name__.startswith(name):
+                m.train()
+        return model
+
+    def set_to_eval(model, name):
+        for m in model.modules():
+            if m.__class__.__name__.startswith(name):
+                m.eval()
+        return model
+
+    for i in range(NUM_BATCHES * BATCH_SIZE):
         datum = dataset[i]
         sample = get_sample(dataset, audio_h5, image_h5, i)
+
+        image_feat = sample["image-feat"]
+        image_feat = image_feat.to(device)
 
         audio_feat = sample["audio-feat"]
         audio_feat = audio_feat.to(device)
@@ -92,6 +110,34 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name, e
 
         input = audio_feat, padding_mask
         image_feat_pred = model(input)
+
+        # model.train()
+        # print(compute_metric(model(input), image_feat))
+
+        # model = set_to_eval(model, "MultiheadAttention")
+        # model = set_to_train(model, "Dropout")
+        # print(compute_metric(model(input), image_feat))
+
+        # model = set_to_eval(model, "Dropout")
+        # print(compute_metric(model(input), image_feat))
+
+        # model.eval()
+        # print(compute_metric(model(input), image_feat))
+
+        # model.eval()
+        # model = set_to_train(model, "Dropout")
+        # print(compute_metric(model(input), image_feat))
+
+        # model.eval()
+        # model = set_to_train(model, "MultiheadAttention")
+        # print(compute_metric(model(input), image_feat))
+
+        # model.train()
+        # print(compute_metric(model(input), image_feat))
+        print(image_feat.min(), image_feat.max())
+        print(image_feat_pred.min(), image_feat_pred.max())
+
+        import pdb; pdb.set_trace()
 
         generated_caption = generate_caption(
             image_captioning_model,

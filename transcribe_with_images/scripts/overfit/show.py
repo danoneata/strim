@@ -21,8 +21,11 @@ mapping_model_name = "large"
 dataset = Flickr8kDataset(split="train")
 path_hdf5_image = "output/image-captioner/blip-base-flickr8k-train.h5"
 
-# num_samples = NUM_BATCHES * BATCH_SIZE
-idxs = list(range(32))
+num_samples = NUM_BATCHES * BATCH_SIZE
+idxs = list(range(num_samples))
+# idxs = list(range(32))
+random.shuffle(idxs)
+idxs = idxs[:16]
 
 
 def get_text(f, path):
@@ -36,7 +39,7 @@ def load_generated_caption_with_model(epoch):
         return json.load(f)
 
 
-epochs = list(range(1, 6))
+epochs = list(range(1, 26))
 generated_captions_with_model = {
     epoch: load_generated_caption_with_model(epoch)
     for epoch in epochs
@@ -52,9 +55,9 @@ losses = [
 ]
 losses = sorted(losses, key=lambda x: x["epoch"])
 
-with st.sidebar:
-    st.markdown("Loss information:")
-    losses
+# with st.sidebar:
+#     st.markdown("Loss information:")
+#     losses
 
 
 

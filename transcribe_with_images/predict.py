@@ -68,7 +68,7 @@ def get_model_path(image_model_name, audio_model_name, dataset_name, mapping_mod
     folder = f"output/audio-to-image-mapper/{mapping_model_name}-{dataset_name}-{audio_model_name}-{image_model_name}"
     folder = Path(folder)
     model_paths = [folder / f for f in os.listdir(folder)]
-    model_path = max(model_paths, key=get_epoch)
+    model_path = max(model_paths, key=get_neg_loss)
     print(model_path)
     return model_path
 
