@@ -149,7 +149,8 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
         h5py.File(H5_PATH_IMAGE.format(image_model_name, dataset_name, "dev"), "r"),
     )
 
-    lr = 4e-3
+    # lr = 4e-3
+    lr = 1e-4
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
