@@ -49,8 +49,8 @@ def generate(self, image_embeds, **generate_kwargs):
     return outputs
 
 
-def generate_caption(model, preprocessor, image_embeds):
-    out = generate(model, image_embeds)
+def generate_caption(model, preprocessor, image_embeds, **generate_kwargs):
+    out = generate(model, image_embeds, **generate_kwargs)
     return preprocessor.decode(out[0], skip_special_tokens=True)
 
 

@@ -1,5 +1,6 @@
 import os
 
+from itertools import groupby
 from pathlib import Path
 from typing import Union, Literal
 
@@ -40,6 +41,15 @@ class Flickr8kDataset:
         data = read_file(file_transcript, parse_token)
         data = [sample for sample in data if sample["key-image"] in selected_keys]
         return data
+
+    def get_image_key_to_captions(self):
+        func = lambda sample: sample["key-image"]
+        data = sorted(self.data, key=func)
+        groups = groupby(data, key=func)
+        return {
+            k: [sample["text"] for sample in group]
+            for k, group in groups
+        }
 
     def get_audio_path(self, sample):
         key, i = sample["key-audio"]

@@ -48,6 +48,11 @@ class AudioToImageMapper(torch.nn.Module):
         return output
 
 
+def load_image_feat(image_h5, sample):
+    path_image = sample["key-image"] + "/" + "image-features"
+    return image_h5[path_image][...]
+
+
 def get_sample(dataset, audio_h5, image_h5, i):
     max_audio_len = 600
     sample = dataset[i]
