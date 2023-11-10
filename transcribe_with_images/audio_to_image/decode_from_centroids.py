@@ -12,6 +12,7 @@ import torch
 
 from tqdm import tqdm
 
+from sklearn.preprocessing import FunctionTransformer
 from transformers import BlipProcessor, BlipForConditionalGeneration
 
 from transcribe_with_images.train import (
@@ -21,30 +22,37 @@ from transcribe_with_images.train import (
     get_sample,
 )
 from transcribe_with_images.predict import generate_caption
+from transcribe_with_images.audio_to_image.cluster import (
+    get_path_kmeans,
+    get_path_pca,
+    DATASET_NAME,
+    AUDIO_MODEL_NAME,
+    IMAGE_MODEL_NAME,
+    SPLIT,
+)
 
 
 random.seed(1337)
 
 
 @click.command()
-@click.option("-i", "--image-model", "image_model_name", default="blip-base")
-@click.option("-a", "--audio-model", "audio_model_name", default="wav2vec2-xls-r-2b")
-@click.option("-d", "--dataset", "dataset_name", default="flickr8k")
+# @click.option("-i", "--image-model", "image_model_name", default="blip-base")
+# @click.option("-a", "--audio-model", "audio_model_name", default="wav2vec2-xls-r-2b")
+# @click.option("-d", "--dataset", "dataset_name", default="flickr8k")
 @click.option("-k", "num_clusters", type=click.INT)
+@click.option("-d", "num_pca_dimensions", type=click.INT)
 @click.option("-v", "--verbose", is_flag=True, default=False)
-def main(image_model_name, audio_model_name, dataset_name, num_clusters, verbose):
+def main(num_clusters, num_pca_dimensions, verbose):
     device = "cuda"
-    split = "train"
+    dataset = Flickr8kDataset(split=SPLIT)
 
-    dataset = Flickr8kDataset(split=split)
-
-    audio_h5_path = H5_PATH_AUDIO.format(audio_model_name, dataset_name, split)
+    audio_h5_path = H5_PATH_AUDIO.format(AUDIO_MODEL_NAME, DATASET_NAME, SPLIT)
     audio_h5 = h5py.File(audio_h5_path, "r")
 
-    image_h5_path = H5_PATH_IMAGE.format(image_model_name, dataset_name, split)
+    image_h5_path = H5_PATH_IMAGE.format(IMAGE_MODEL_NAME, DATASET_NAME, SPLIT)
     image_h5 = h5py.File(image_h5_path, "r")
 
-    assert image_model_name == "blip-base"
+    assert IMAGE_MODEL_NAME == "blip-base"
     image_model_name_full = "Salesforce/blip-image-captioning-base"
     image_captioning_processor = BlipProcessor.from_pretrained(image_model_name_full)
     image_captioning_model = BlipForConditionalGeneration.from_pretrained(
@@ -52,16 +60,24 @@ def main(image_model_name, audio_model_name, dataset_name, num_clusters, verbose
     )
     image_captioning_model = image_captioning_model.to(device)
 
-    filename = "{}-{}-{}".format(dataset_name, image_model_name, num_clusters)
-    kmeans_path = f"output/kmeans-image-feat/{filename}.pkl"
-    with open(kmeans_path, "rb") as f:
+    if num_pca_dimensions is not None:
+        with open(get_path_pca(num_pca_dimensions), "rb") as f:
+            pca = pickle.load(f)
+    else:
+        pca = FunctionTransformer(func=lambda x: x, inverse_func=lambda x: x)
+
+    with open(get_path_kmeans(num_clusters, num_pca_dimensions), "rb") as f:
         kmeans = pickle.load(f)
 
+    centroids = kmeans.cluster_centers_
+    centroids = pca.inverse_transform(centroids)
+
     def get_closest_centroid(feat, kmeans):
-        feat = feat.reshape(1, -1)
-        idx = kmeans.predict(feat.numpy())[0]
-        # print(idx, end=" ")
-        return kmeans.cluster_centers_[idx]
+        feat = feat.reshape(1, -1).numpy()
+        feat = pca.transform(feat)
+        idx = kmeans.predict(feat)[0]
+        centroid = centroids[idx]
+        return centroid
 
     generate_kwargs = dict(
         num_beams=5,
@@ -85,6 +101,7 @@ def main(image_model_name, audio_model_name, dataset_name, num_clusters, verbose
         image_feats_centroids = torch.tensor(np.array(image_feats_centroids))
         image_feats_centroids = image_feats_centroids.to(device)
         image_feats_centroids = image_feats_centroids.unsqueeze(0)
+        image_feats_centroids = image_feats_centroids.float()
 
         generated_caption_1 = generate_caption(
             image_captioning_model,
@@ -99,7 +116,9 @@ def main(image_model_name, audio_model_name, dataset_name, num_clusters, verbose
             **generate_kwargs,
         )
 
-        error = torch.nn.functional.mse_loss(image_feats_orig, image_feats_centroids).item()
+        error = torch.nn.functional.mse_loss(
+            image_feats_orig, image_feats_centroids
+        ).item()
 
         if verbose:
             print(generated_caption_1)
@@ -119,6 +138,13 @@ def main(image_model_name, audio_model_name, dataset_name, num_clusters, verbose
         idxs = tqdm(idxs)
 
     results = [do1(i) for i in idxs]
+
+    filename = "{}-{}-k-{}-d-{}".format(
+        DATASET_NAME,
+        IMAGE_MODEL_NAME,
+        num_clusters,
+        num_pca_dimensions,
+    )
     path = f"output/results/kmeans-image-feat/{filename}.json"
     with open(path, "w") as f:
         json.dump(results, f, indent=2)

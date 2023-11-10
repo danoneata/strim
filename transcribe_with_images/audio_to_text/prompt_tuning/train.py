@@ -20,7 +20,7 @@ from transformers import (
     SpeechEncoderDecoderModel,
 )
 
-from transcribe_with_images.audio_to_text.train import (
+from transcribe_with_images.audio_to_text.cross_attention.train import (
     DatasetForTrainer,
     my_data_collator,
 )
@@ -87,14 +87,12 @@ class LanguageDecoder(nn.Module):
         attention_mask,
         audio_embeds,
         past_key_values=None,
-        use_cache=None,
         **kwargs,
     ):
-        pdb.set_trace()
-        expand_size = input_ids.size(0) // audio_embeds.size(0)
-        audio_embeds = audio_embeds.repeat_interleave(expand_size, dim=0)
-        visual_mask = torch.ones(
-            audio_embeds.shape[:2], dtype=torch.long, device=audio_embeds.device
+        audio_mask = torch.ones(
+            audio_embeds.shape[:2],
+            dtype=torch.long,
+            device=audio_embeds.device,
         )
 
         if input_ids[0][0] == self.model.config.bos_token_id:
@@ -102,9 +100,8 @@ class LanguageDecoder(nn.Module):
             attention_mask = attention_mask[:, 1:]
 
         token_embeds = self.embed_tokens(input_ids)
-
         input_embeds = torch.cat([audio_embeds, token_embeds], dim=1)
-        attention_mask = torch.cat([visual_mask, attention_mask], dim=1)
+        attention_mask = torch.cat([audio_mask, attention_mask], dim=1)
 
         input_embeds, attention_mask = accumulate_padding(
             input_embeds, attention_mask, padding_side="left"
@@ -117,7 +114,7 @@ class LanguageDecoder(nn.Module):
             "inputs_embeds": input_embeds,
             "attention_mask": attention_mask,
             "past_key_values": past_key_values,
-            "use_cache": use_cache,
+            **kwargs,
         }
 
 
@@ -181,6 +178,7 @@ class PromptTuningModel(torch.nn.Module):
                 # torch_dtype=torch.float16,
                 # revision="float16",
                 # low_cpu_mem_usage=True,
+                # device="cuda",
             )
         )
 
@@ -191,6 +189,7 @@ class PromptTuningModel(torch.nn.Module):
             input_dim=audio_dim,
             output_dim=self.language_decoder.embed_dim,
         )
+        self.mapper.to(self.language_decoder.model.device)
 
     @classmethod
     def from_pretrained(
@@ -224,12 +223,13 @@ class PromptTuningModel(torch.nn.Module):
         # target_ids: torch.Tensor,
         # prefix_ids: torch.Tensor = None,
         encoder_outputs: torch.Tensor,
-        input_ids: torch.Tensor,
         attention_mask: torch.Tensor,
+        labels: torch.Tensor,
+        decoder_input_ids: torch.Tensor,
         decoder_attention_mask: torch.Tensor,
     ) -> torch.Tensor:
         audio_embeds = self.mapper(encoder_outputs.last_hidden_state, attention_mask)
-        input_embeds = self.embed_text(input_ids)
+        input_embeds = self.embed_text(decoder_input_ids)
         input_embeds_full = torch.cat((audio_embeds, input_embeds), dim=1)
 
         audio_mask = torch.ones(
@@ -237,10 +237,10 @@ class PromptTuningModel(torch.nn.Module):
             dtype=torch.long,
             device=audio_embeds.device,
         )
-        decoder_attention_mask_full = torch.cat((audio_mask, decoder_attention_mask), dim=1)
+        decoder_attention_mask_full = torch.cat(
+            (audio_mask, decoder_attention_mask), dim=1
+        )
 
-        labels = input_ids.clone().detach()
-        labels[labels == self.text_processor.pad_token_id] = -100
         labels_full = torch.cat((-100 * audio_mask, labels), dim=1)
 
         outputs = self.language_decoder(
@@ -253,27 +253,32 @@ class PromptTuningModel(torch.nn.Module):
 
     @torch.inference_mode()
     def generate(
-        self, pixel_values: torch.Tensor, input_ids: torch.Tensor = None, **kwargs
+        self, encoder_outputs: torch.Tensor, input_ids: torch.Tensor = None, **kwargs
     ) -> List[str]:
-        audio_embeds = self.embed_image(pixel_values)
-        if input_ids is None:
-            input_ids = torch.full(
-                (audio_embeds.size(0), 1),
-                self.text_processor.bos_token_id,
-                dtype=torch.long,
-                device=audio_embeds.device,
-            )
-        attention_mask = (input_ids != self.text_processor.pad_token_id).long()
+        attention_mask_audio = torch.ones(
+            encoder_outputs.last_hidden_state.shape[:2],
+            device=encoder_outputs.last_hidden_state.device,
+        )
+        audio_embeds = self.mapper(
+            encoder_outputs.last_hidden_state, attention_mask_audio
+        )
+        # input_ids = torch.full(
+        #     (audio_embeds.size(0), 1),
+        #     self.text_processor.bos_token_id,
+        #     dtype=torch.long,
+        #     device=audio_embeds.device,
+        # )
+        # attention_mask = (input_ids != self.text_processor.pad_token_id).long()
 
         output_ids = self.language_decoder.generate(
-            inputs=input_ids,
-            attention_mask=attention_mask,
+            # inputs=input_ids,
+            # attention_mask=attention_mask,
+            # eos_token_id=self.text_processor.get_vocab()["."],
             audio_embeds=audio_embeds,
-            eos_token_id=self.text_processor.get_vocab()["."],
             pad_token_id=self.text_processor.pad_token_id,
             **kwargs,
         )
-        output_ids = output_ids[:, input_ids.size(1) :]
+        # output_ids = output_ids[:, input_ids.size(1) :]
 
         return output_ids
 

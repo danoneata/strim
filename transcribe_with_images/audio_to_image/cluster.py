@@ -1,13 +1,13 @@
 import pdb
 import pickle
-
-from pathlib import Path
+import random
 
 import click
 import numpy as np
 import h5py
 
 from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 
 from transcribe_with_images.train import (
     Flickr8kDataset,
@@ -16,15 +16,41 @@ from transcribe_with_images.train import (
 )
 
 
+SEED = 1337
+random.seed(SEED)
+np.random.seed(SEED)
+
+
+DATASET_NAME = "flickr8k"
+AUDIO_MODEL_NAME = "wav2vec2-xls-r-2b"
+IMAGE_MODEL_NAME = "blip-base"
+SPLIT = "train"
+
+
+def get_path_pca(num_pca_dimensions):
+    return "output/kmeans-image-feat/pca-{}-{}-d-{}.pkl".format(
+        DATASET_NAME,
+        IMAGE_MODEL_NAME,
+        num_pca_dimensions,
+    )
+    
+
+def get_path_kmeans(num_clusters, num_pca_dimensions=None):
+    suffix = "-d-{}".format(num_pca_dimensions) if num_pca_dimensions is not None else ""
+    return "output/kmeans-image-feat/kmeans-{}-{}-k-{}{}.pkl".format(
+        DATASET_NAME,
+        IMAGE_MODEL_NAME,
+        num_clusters,
+        suffix,
+    )
+
+
 @click.command()
 @click.option("-k", "num_clusters", type=click.INT)
-def main(num_clusters):
-    dataset_name = "flickr8k"
-    image_model_name = "blip-base"
-    split = "train"
-    h5_path = H5_PATH_IMAGE.format(image_model_name, dataset_name, split)
-
-    dataset = Flickr8kDataset(split=split)
+@click.option("-d", "num_pca_dimensions", type=click.INT)
+def main(num_clusters, num_pca_dimensions):
+    h5_path = H5_PATH_IMAGE.format(IMAGE_MODEL_NAME, DATASET_NAME, SPLIT)
+    dataset = Flickr8kDataset(split=SPLIT)
 
     num_feats_per_image = 32
     num_images = 5_000
@@ -40,13 +66,17 @@ def main(num_clusters):
         features = [load_features_subset(image_h5, i) for i in selected_images]
         features = np.vstack(features)
 
-    kmeans = KMeans(n_clusters=num_clusters)
+    if num_pca_dimensions is not None:
+        pca = PCA(n_components=num_pca_dimensions)
+        features = pca.fit_transform(features)
+
+        with open(get_path_pca(num_pca_dimensions), "wb") as f:
+            pickle.dump(pca, f)
+
+    kmeans = KMeans(n_clusters=num_clusters, n_init="auto", verbose=1)
     kmeans.fit(features)
 
-    checkpoint_path = "output/kmeans-image-feat/{}-{}-{}.pkl".format(
-        dataset_name, image_model_name, num_clusters
-    )
-    with open(checkpoint_path, "wb") as f:
+    with open(get_path_kmeans(num_clusters, num_pca_dimensions), "wb") as f:
         pickle.dump(kmeans, f)
 
 

@@ -113,25 +113,28 @@ class DatasetForTrainer:
 
     def __len__(self):
         return self.num_generated_captions_per_image * len(self.dataset)
-        # return 320
+
+    def load_audio_features(self, sample):
+        max_audio_len = 600
+        path_audio = get_group_name(sample) + "/" + "audio-features"
+        audio_feat = self.audio_h5[path_audio][...]
+        audio_feat = torch.tensor(audio_feat[:max_audio_len])
+        return audio_feat
+
+    def load_generated_captions(self, sample):
+        path_text = sample["key-image"] + "/" + "generated-captions"
+        texts = self.image_h5[path_text][...]
+        texts = [text.decode() for text in texts]
+        return texts
 
     def __getitem__(self, i):
-        max_audio_len = 600
-
         sample_idx = i // self.num_generated_captions_per_image
         caption_idx = i % self.num_generated_captions_per_image
 
         sample = self.dataset[sample_idx]
 
-        # input: audio
-        path_audio = get_group_name(sample) + "/" + "audio-features"
-        audio_feat = self.audio_h5[path_audio][...]
-        audio_feat = audio_feat[:max_audio_len]
-
-        # output: text
-        path_text = sample["key-image"] + "/" + "generated-captions"
-        texts = self.image_h5[path_text][...]
-        text = texts[caption_idx].decode()
+        audio_feats = self.load_audio_features(sample)
+        target_text = self.load_generated_captions(sample)[caption_idx]
 
         # text = sample["text"].lower()
         # words = text.split()
@@ -139,8 +142,8 @@ class DatasetForTrainer:
         # text = " ".join(words)
 
         return {
-            "encoder_outputs": torch.tensor(audio_feat),
-            "labels": text,
+            "encoder_outputs": audio_feats,
+            "labels": target_text,
         }
 
 
@@ -175,8 +178,8 @@ CONFIGS = {
         #     "name": "flickr8k",
         # },
         "training": {
-            "num_train_epochs": 150,
-            "per_device_train_batch_size": 32,
+            "num_train_epochs": 50,
+            "per_device_train_batch_size": 20,
             "learning_rate": 1e-4,
             "gradient_accumulation_steps": 1,
             "fp16": False,
@@ -234,13 +237,17 @@ def my_data_collator(tokenizer, data) -> Dict[str, torch.Tensor]:
     texts = [datum["labels"] for datum in data]
     texts_padded = tokenizer(texts, padding=True)
 
-    labels = torch.tensor(texts_padded["input_ids"])
+    input_ids = torch.tensor(texts_padded["input_ids"])
     decoder_attention_mask = torch.tensor(texts_padded["attention_mask"])
+
+    labels = input_ids.clone().detach()
+    labels[labels == tokenizer.pad_token_id] = -100
 
     return {
         "encoder_outputs": BaseModelOutput(input_features),
-        "labels": labels,
         "attention_mask": padding_mask,
+        "labels": labels,
+        "decoder_input_ids": input_ids,
         "decoder_attention_mask": decoder_attention_mask,
     }
 
@@ -255,7 +262,9 @@ def main(config_name):
 
     output_dir = os.path.join("output/audio-to-text-mapper", config_name)
     training_args = Seq2SeqTrainingArguments(
-        output_dir=output_dir, **config["training"]
+        output_dir=output_dir,
+        remove_unused_columns=False,
+        **config["training"],
     )
     trainer = Seq2SeqTrainer(
         model=model,
