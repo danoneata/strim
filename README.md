@@ -14,5 +14,5 @@ done
 
 Learn a mapping network from audio features to image features:
 ```bash
-python transcribe_with_images/train.py -m tiny
+python transcribe_with_images/audio_to_image/train.py -m tiny
 ```
