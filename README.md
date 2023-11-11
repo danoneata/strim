@@ -1,6 +1,6 @@
-# Strim: Transcribing speech with images
+# Strim: Speech transcribing with images
 
-Cross-modal learning of speech paraphrasing from image captioning.
+In this project we distil the knowledge of an image captioning system to a speech paraphrasing system.
 
 ---
 
