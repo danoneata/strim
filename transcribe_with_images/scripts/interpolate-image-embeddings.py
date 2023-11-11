@@ -9,13 +9,13 @@ import torch
 
 from transformers import BlipProcessor, BlipForConditionalGeneration
 
-from transcribe_with_images.train import (
+from transcribe_with_images.audio_to_image.train import (
     Flickr8kDataset,
     H5_PATH_AUDIO,
     H5_PATH_IMAGE,
     get_sample,
 )
-from transcribe_with_images.predict import generate_caption
+from transcribe_with_images.audio_to_image.predict import generate_caption
 
 
 @click.command()
