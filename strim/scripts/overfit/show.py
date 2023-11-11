@@ -6,9 +6,9 @@ import h5py
 import numpy as np
 import streamlit as st
 
-from transcribe_with_images.data import Flickr8kDataset
-from transcribe_with_images.predict import get_neg_loss, get_epoch
-from transcribe_with_images.scripts.overfit.predict import NUM_BATCHES, BATCH_SIZE, OUT_DIR
+from strim.data import Flickr8kDataset
+from strim.audio_to_image.predict import get_neg_loss, get_epoch
+from strim.scripts.overfit.predict import NUM_BATCHES, BATCH_SIZE, OUT_DIR
 
 
 st.set_page_config(layout="wide")

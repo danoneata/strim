@@ -14,7 +14,7 @@ from transformers import (
 )
 from transformers.modeling_outputs import BaseModelOutput
 
-from transcribe_with_images.audio_to_text.cross_attention.train import (
+from strim.audio_to_text.cross_attention.train import (
     CONFIGS,
     DatasetForTrainer,
     get_audio_to_text_mapper,

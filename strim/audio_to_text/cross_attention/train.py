@@ -25,8 +25,8 @@ from transformers import (
 )
 from transformers.modeling_outputs import BaseModelOutput
 
-from transcribe_with_images.data import Flickr8kDataset
-from transcribe_with_images.scripts.extract_audio_features import get_group_name
+from strim.data import Flickr8kDataset
+from strim.scripts.extract_audio_features import get_group_name
 
 from typing import List
 

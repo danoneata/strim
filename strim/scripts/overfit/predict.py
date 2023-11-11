@@ -10,7 +10,7 @@ import torch
 
 from transformers import BlipProcessor, BlipForConditionalGeneration
 
-from transcribe_with_images.train import (
+from strim.audio_to_image.train import (
     AudioToImageMapper,
     Flickr8kDataset,
     H5_PATH_AUDIO,
@@ -18,12 +18,12 @@ from transcribe_with_images.train import (
     MODELS,
     get_sample,
 )
-from transcribe_with_images.scripts.overfit.train import (
+from strim.scripts.overfit.train import (
     BATCH_SIZE,
     NUM_BATCHES,
     OUT_DIR,
 )
-from transcribe_with_images.predict import (
+from strim.audio_to_image.predict import (
     generate_caption,
     get_epoch,
 )

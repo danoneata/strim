@@ -14,8 +14,10 @@ from ignite.handlers import create_lr_scheduler_with_warmup, ModelCheckpoint, gl
 from ignite.metrics import Loss  # type: ignore
 from ignite.utils import convert_tensor
 
-from transcribe_with_images.data import Flickr8kDataset
-from transcribe_with_images.scripts.extract_audio_features import get_group_name
+import ignite.distributed as idist
+
+from strim.data import Flickr8kDataset
+from strim.scripts.extract_audio_features import get_group_name
 
 
 H5_PATH_AUDIO = "output/audio-features/{}-{}-{}.h5"
@@ -46,11 +48,6 @@ class AudioToImageMapper(torch.nn.Module):
             memory_key_padding_mask=padding_mask,
         )
         return output
-
-
-def load_image_feat(image_h5, sample):
-    path_image = sample["key-image"] + "/" + "image-features"
-    return image_h5[path_image][...]
 
 
 def get_sample(dataset, audio_h5, image_h5, i):
@@ -126,12 +123,10 @@ MODELS = {
     },
 }
 
-@click.command()
-@click.option("-i", "--image-model", "image_model_name", default="blip-base")
-@click.option("-a", "--audio-model", "audio_model_name", default="wav2vec2-xls-r-2b")
-@click.option("-d", "--dataset", "dataset_name", default="flickr8k")
-@click.option("-m", "--mapping-model", "mapping_model_name")
-def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
+
+def training(local_rank, image_model_name, audio_model_name, dataset_name, mapping_model_name):
+    rank = idist.get_rank()
+
     device = "cuda"
     model = AudioToImageMapper(
         dim_audio=1920,
@@ -154,10 +149,9 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
         h5py.File(H5_PATH_IMAGE.format(image_model_name, dataset_name, "dev"), "r"),
     )
 
-    # lr = 4e-3
-    lr = 1e-4
+    lr = 4e-3
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 
     metrics = {"loss": Loss(criterion)}
 
@@ -200,16 +194,17 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
 
     trainer.add_event_handler(Events.ITERATION_STARTED, scheduler)
 
-    @trainer.on(Events.ITERATION_COMPLETED(every=log_interval))
-    def log_training_loss(engine):
-        print(
-            "{:3d} · {:6d} ◇ {:.5f} · lr = {:.5f}".format(
-                engine.state.epoch,
-                engine.state.iteration,
-                engine.state.output,
-                optimizer.param_groups[0]["lr"],
+    if rank == 0:
+        @trainer.on(Events.ITERATION_COMPLETED(every=log_interval))
+        def log_training_loss(engine):
+            print(
+                "{:3d} · {:6d} ◇ {:.5f} · lr = {:.5f}".format(
+                    engine.state.epoch,
+                    engine.state.iteration,
+                    engine.state.output,
+                    optimizer.param_groups[0]["lr"],
+                )
             )
-        )
 
     @trainer.on(Events.EPOCH_COMPLETED)
     def log_validation_results(trainer):
@@ -238,6 +233,18 @@ def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
 
     evaluator.add_event_handler(Events.COMPLETED, model_checkpoint, {"model": model})
     trainer.run(train_loader, max_epochs=num_epochs, epoch_length=num_steps_per_epoch)
+
+
+@click.command()
+@click.option("-i", "--image-model", "image_model_name", default="blip-base")
+@click.option("-a", "--audio-model", "audio_model_name", default="wav2vec2-xls-r-2b")
+@click.option("-d", "--dataset", "dataset_name", default="flickr8k")
+@click.option("-m", "--mapping-model", "mapping_model_name")
+def main(image_model_name, audio_model_name, dataset_name, mapping_model_name):
+    backend = "nccl"
+    nproc_per_node = 4
+    with idist.Parallel(backend=backend, nproc_per_node=nproc_per_node) as parallel:
+        parallel.run(training, image_model_name, audio_model_name, dataset_name, mapping_model_name)
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ from transformers import (
     SpeechEncoderDecoderModel,
 )
 
-from transcribe_with_images.audio_to_text.cross_attention.train import (
+from strim.audio_to_text.cross_attention.train import (
     DatasetForTrainer,
     my_data_collator,
 )

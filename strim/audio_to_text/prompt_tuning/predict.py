@@ -14,8 +14,8 @@ from transformers import (
 )
 from transformers.modeling_outputs import BaseModelOutput
 
-from transcribe_with_images.audio_to_text.cross_attention.train import DatasetForTrainer
-from transcribe_with_images.audio_to_text.prompt_tunning.train import (
+from strim.audio_to_text.cross_attention.train import DatasetForTrainer
+from strim.audio_to_text.prompt_tuning.train import (
     CONFIGS,
     PromptTuningModel,
 )

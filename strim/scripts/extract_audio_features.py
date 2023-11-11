@@ -9,7 +9,7 @@ import torch
 from transformers import AutoFeatureExtractor, WavLMModel, Wav2Vec2Model
 from tqdm import tqdm
 
-from transcribe_with_images.data import Flickr8kDataset
+from strim.data import Flickr8kDataset
 
 
 SAMPLING_RATE = 16_000

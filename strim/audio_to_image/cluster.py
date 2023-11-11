@@ -9,8 +9,7 @@ import h5py
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 
-from transcribe_with_images.train import (
-    Flickr8kDataset,
+from strim.audio_to_image.train import (
     H5_PATH_IMAGE,
     load_image_feat,
 )

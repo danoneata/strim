@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="transcribe-with-images",
+    name="strim",
     version="0.0.1",
     # url="https://git.speed.pub.ro/ai4trust/aletheia",
     author="Dan Oneață",

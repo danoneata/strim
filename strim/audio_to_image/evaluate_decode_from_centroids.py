@@ -5,7 +5,7 @@ import pandas as pd
 
 from sacrebleu.metrics import BLEU
 
-from transcribe_with_images.train import Flickr8kDataset
+from strim.audio_to_image.train import Flickr8kDataset
 
 
 

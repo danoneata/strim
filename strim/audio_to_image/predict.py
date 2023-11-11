@@ -9,7 +9,7 @@ import torch
 
 from transformers import BlipProcessor, BlipForConditionalGeneration
 
-from transcribe_with_images.train import (
+from strim.audio_to_image.train import (
     AudioToImageMapper,
     Flickr8kDataset,
     H5_PATH_AUDIO,

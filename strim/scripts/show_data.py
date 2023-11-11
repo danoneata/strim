@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 import streamlit as st
 
-from transcribe_with_images.data import Flickr8kDataset
+from strim.data import Flickr8kDataset
 
 dataset = Flickr8kDataset(split="test")
 path_hdf5_image = "output/image-captioner/blip-base-flickr8k-test.h5"

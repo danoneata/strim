@@ -4,7 +4,7 @@ from itertools import groupby
 from pathlib import Path
 from typing import Union, Literal
 
-from transcribe_with_images.utils import read_file
+from strim.utils import read_file
 
 
 BASE_DATA_DIR = Path("data")

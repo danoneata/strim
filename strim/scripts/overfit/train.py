@@ -16,8 +16,8 @@ from ignite.handlers import create_lr_scheduler_with_warmup, ModelCheckpoint, gl
 from ignite.metrics import Loss  # type: ignore
 from ignite.utils import convert_tensor
 
-from transcribe_with_images.data import Flickr8kDataset
-from transcribe_with_images.train import (
+from strim.data import Flickr8kDataset
+from strim.audio_to_image.train import (
     AudioToImageMapper,
     get_sample,
     H5_PATH_AUDIO,

@@ -7,7 +7,7 @@ from PIL import Image
 from tqdm import tqdm
 from transformers import BlipProcessor, BlipForConditionalGeneration
 
-from transcribe_with_images.data import Flickr8kDataset
+from strim.data import Flickr8kDataset
 
 
 MODEL_CONFIGS = {

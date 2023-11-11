@@ -1,3 +1,9 @@
+# Strim: Transcribing speech with images
+
+Cross-modal learning of speech paraphrasing from image captioning.
+
+---
+
 Extract image features and generate image captions:
 ```bash
 for s in train dev test; do
