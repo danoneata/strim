@@ -26,6 +26,7 @@ def get_bleu(results):
     bleu = BLEU()
     sys = [result["generated-caption-reconstructed"] for result in results]
     refs = [[result["generated-caption-original"]] for result in results]
+    refs = list(zip(*refs))
     return bleu.corpus_score(sys, refs).score
 
 
@@ -35,6 +36,7 @@ def get_bleu_vs_gt_1(key_to_caption_sys):
     key_to_captions_ref = dataset.get_image_key_to_captions()
     ref = [key_to_captions_ref[key] for key in key_to_caption_sys.keys()]
     sys = list(key_to_caption_sys.values())
+    ref = list(zip(*ref))
     return bleu.corpus_score(sys, ref).score
 
 
@@ -44,6 +46,7 @@ def get_bleu_vs_gt(results):
     key_to_captions = dataset.get_image_key_to_captions()
     sys = [result["generated-caption-reconstructed"] for result in results]
     refs = [key_to_captions[result["key-image"]] for result in results]
+    refs = list(zip(*refs))
     return bleu.corpus_score(sys, refs).score
 
 
