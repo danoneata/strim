@@ -97,6 +97,33 @@ def get_audio_to_text_mapper(
     return model, tokenizer
 
 
+class AudioFeaturesLoader:
+    def __init__(self, audio_model_name, dataset_name, split):
+        self.audio_h5 = h5py.File(
+            H5_PATH_AUDIO.format(audio_model_name, dataset_name, split), "r"
+        )
+
+    def __call__(self, sample):
+        max_audio_len = 600
+        path_audio = get_group_name(sample) + "/" + "audio-features"
+        audio_feat = self.audio_h5[path_audio][...]
+        audio_feat = torch.tensor(audio_feat[:max_audio_len])
+        return audio_feat
+
+
+class GeneratedCaptionsLoader:
+    def __init__(self, image_model_name, dataset_name, split):
+        self.image_h5 = h5py.File(
+            H5_PATH_IMAGE.format(image_model_name, dataset_name, split), "r"
+        )
+
+    def __call__(self, sample):
+        path_text = sample["key-image"] + "/" + "generated-captions"
+        texts = self.image_h5[path_text][...]
+        texts = [text.decode() for text in texts]
+        return texts
+
+
 class DatasetForTrainer:
     def __init__(self, split):
         dataset_name = "flickr8k"
@@ -104,28 +131,15 @@ class DatasetForTrainer:
         image_model_name = "blip-base"
         self.num_generated_captions_per_image = 5
         self.dataset = Flickr8kDataset(split=split)
-        self.audio_h5 = h5py.File(
-            H5_PATH_AUDIO.format(audio_model_name, dataset_name, split), "r"
+        self.load_generated_captions = GeneratedCaptionsLoader(
+            image_model_name, dataset_name, split
         )
-        self.image_h5 = h5py.File(
-            H5_PATH_IMAGE.format(image_model_name, dataset_name, split), "r"
+        self.load_audio_feats = AudioFeaturesLoader(
+            audio_model_name, dataset_name, split
         )
 
     def __len__(self):
         return self.num_generated_captions_per_image * len(self.dataset)
-
-    def load_audio_features(self, sample):
-        max_audio_len = 600
-        path_audio = get_group_name(sample) + "/" + "audio-features"
-        audio_feat = self.audio_h5[path_audio][...]
-        audio_feat = torch.tensor(audio_feat[:max_audio_len])
-        return audio_feat
-
-    def load_generated_captions(self, sample):
-        path_text = sample["key-image"] + "/" + "generated-captions"
-        texts = self.image_h5[path_text][...]
-        texts = [text.decode() for text in texts]
-        return texts
 
     def __getitem__(self, i):
         sample_idx = i // self.num_generated_captions_per_image
@@ -133,7 +147,7 @@ class DatasetForTrainer:
 
         sample = self.dataset[sample_idx]
 
-        audio_feats = self.load_audio_features(sample)
+        audio_feats = self.load_audio_feats(sample)
         target_text = self.load_generated_captions(sample)[caption_idx]
 
         # text = sample["text"].lower()
@@ -182,6 +196,7 @@ CONFIGS = {
             "per_device_train_batch_size": 20,
             "learning_rate": 1e-4,
             "gradient_accumulation_steps": 1,
+            "gradient_checkpointing": False,
             "fp16": False,
             # "save_strategy": "steps",
             # "logging_strategy": "steps",
