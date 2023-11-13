@@ -234,21 +234,31 @@ def my_data_collator(tokenizer, data) -> Dict[str, torch.Tensor]:
     ]
     padding_mask = pad_sequence(padding_mask, batch_first=True, padding_value=0)
 
-    texts = [datum["labels"] for datum in data]
+    # Manually append end-of-sentence token since GPT2 doesn't do this by default.
+    # See https://github.com/huggingface/transformers/issues/3311
+    texts = [datum["labels"] + tokenizer.eos_token for datum in data]
     texts_padded = tokenizer(texts, padding=True)
 
     input_ids = torch.tensor(texts_padded["input_ids"])
     decoder_attention_mask = torch.tensor(texts_padded["attention_mask"])
 
     labels = input_ids.clone().detach()
-    labels[labels == tokenizer.pad_token_id] = -100
+    # Values of `-100` are ignored (masked): that is, the loss is only computed for labels with values ∈ [0, vocab_size].
+    # We need be careful and **not** use `pad_token_id`` for this operation:
+    # ```
+    # labels[labels == tokenizer.pad_token_id] = -100
+    # ```
+    # Since `pad_token_id == eos_token_id`, the line above will mask the end-of-sentence tokens well!
+    # See https://github.com/huggingface/transformers/issues/7135#issuecomment-1172962080
+    labels[~decoder_attention_mask.bool()] = -100
 
     return {
         "encoder_outputs": BaseModelOutput(input_features),
         "attention_mask": padding_mask,
         "labels": labels,
-        "decoder_input_ids": input_ids,
         "decoder_attention_mask": decoder_attention_mask,
+        # No need for `decoder_input_ids` since these are automatically inferred from `labels`.
+        # "decoder_input_ids": input_ids,
     }
 
 
