@@ -2,6 +2,7 @@ import click
 import pdb
 
 import h5py
+import librosa
 import numpy as np
 import soundfile as sf
 import torch
@@ -9,7 +10,7 @@ import torch
 from transformers import AutoFeatureExtractor, WavLMModel, Wav2Vec2Model
 from tqdm import tqdm
 
-from strim.data import Flickr8kDataset
+from strim.data import DATASETS
 
 
 SAMPLING_RATE = 16_000
@@ -97,8 +98,7 @@ def main(
     dataset_name: str,
     split: str,
 ):
-    assert dataset_name == "flickr8k"
-    dataset = Flickr8kDataset(split=split)
+    dataset = DATASETS[dataset_name](split=split)
     num_samples = len(dataset)
 
     feature_extractor = FEATURE_EXTRACTORS[model_name]()
@@ -123,8 +123,16 @@ def main(
             if "audio-features" in group:
                 continue
 
-            audio, sr = sf.read(sample["path-audio"])
+            # audio1, sr1 = sf.read(sample["path-audio"])
+
+            audio, sr = librosa.load(sample["path-audio"], mono=True, sr=SAMPLING_RATE)
+            audio = audio.astype(np.float64)
+            audio = audio.T
+
+            # pdb.set_trace()
+
             assert sr == SAMPLING_RATE
+
             audio = torch.from_numpy(audio).to(feature_extractor.device)
             audio_features = extract1(audio)
             group.create_dataset("audio-features", data=audio_features)

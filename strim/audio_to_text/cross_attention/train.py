@@ -25,7 +25,7 @@ from transformers import (
 )
 from transformers.modeling_outputs import BaseModelOutput
 
-from strim.data import Flickr8kDataset
+from strim.data import DATASETS
 from strim.scripts.extract_audio_features import get_group_name
 
 from typing import List
@@ -125,12 +125,12 @@ class GeneratedCaptionsLoader:
 
 
 class DatasetForTrainer:
-    def __init__(self, split):
-        dataset_name = "flickr8k"
+    def __init__(self, *, name, split):
+        dataset_name = name
         audio_model_name = "wav2vec2-xls-r-2b"
         image_model_name = "blip-base"
         self.num_generated_captions_per_image = 5
-        self.dataset = Flickr8kDataset(split=split)
+        self.dataset = DATASETS[dataset_name](split=split)
         self.load_generated_captions = GeneratedCaptionsLoader(
             image_model_name, dataset_name, split
         )
@@ -188,9 +188,9 @@ MODELS = {
 CONFIGS = {
     "00": {
         "model": MODELS["tiny"],
-        # "dataset": {
-        #     "name": "flickr8k",
-        # },
+        "dataset": {
+            "name": "flickr8k",
+        },
         "training": {
             "num_train_epochs": 50,
             "per_device_train_batch_size": 20,
@@ -212,11 +212,39 @@ CONFIGS = {
             "load_best_model_at_end": True,
         },
     },
+    "00-yfacc": {
+        "model": MODELS["tiny"],
+        "init-model-path": "output/audio-to-text-mapper/00/checkpoint-16500/pytorch_model.bin",
+        "dataset": {
+            "name": "yfacc",
+        },
+        "training": {
+            "num_train_epochs": 25,
+            "per_device_train_batch_size": 20,
+            "learning_rate": 1e-4,
+            "gradient_accumulation_steps": 1,
+            "gradient_checkpointing": False,
+            "fp16": False,
+            # "save_strategy": "steps",
+            # "logging_strategy": "steps",
+            "warmup_steps": 400,
+            "logging_steps": 20,
+            "save_total_limit": 1,
+            "eval_steps": 100,
+            "save_steps": 500,
+            "evaluation_strategy": "steps",
+            "overwrite_output_dir": True,
+            "predict_with_generate": True,
+            "generation_num_beams": 1,
+            "load_best_model_at_end": True,
+            "dataloader_num_workers": 4,
+        },
+    },
     "01": {
         "model": MODELS["tiny"],
-        # "dataset": {
-        #     "name": "flickr8k",
-        # },
+        "dataset": {
+            "name": "flickr8k",
+        },
         "training": {
             "num_train_epochs": 150,
             "per_device_train_batch_size": 16,
@@ -277,15 +305,28 @@ def my_data_collator(tokenizer, data) -> Dict[str, torch.Tensor]:
     }
 
 
+def initialize_model(model, model_path):
+    if not model_path:
+        return model
+    else:
+        state_dict = torch.load(model_path, map_location=model.device)
+        model.load_state_dict(state_dict)
+        return model
+
+
 @click.command()
 @click.option("-c", "--config", "config_name")
 def main(config_name):
     config = CONFIGS[config_name]
+
+    tr_dataset = DatasetForTrainer(**config["dataset"], split="train")
+    te_dataset = DatasetForTrainer(**config["dataset"], split="dev")
+
     model, tokenizer = get_audio_to_text_mapper(**config["model"])
-    tr_dataset = DatasetForTrainer("train")
-    te_dataset = DatasetForTrainer("dev")
+    model = initialize_model(model, config.get("init-model-path"))
 
     output_dir = os.path.join("output/audio-to-text-mapper", config_name)
+
     training_args = Seq2SeqTrainingArguments(
         output_dir=output_dir,
         remove_unused_columns=False,

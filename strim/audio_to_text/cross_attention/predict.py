@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from transformers.modeling_outputs import BaseModelOutput
 
-from strim.data import Flickr8kDataset
+from strim.data import DATASETS
 from strim.audio_to_text.cross_attention.train import (
     CONFIGS,
     AudioFeaturesLoader,
@@ -29,9 +29,15 @@ DEVICE = "cuda"
 CONFIGS_PREDICT = {
     "00-best-2023-11-11": {
         "model-path": "output/audio-to-text-mapper/00/checkpoint-16500/pytorch_model.bin",
+        "dataset-name": "flickr8k",
     },
     "00-best-2023-09-21": {
         "model-path": "output/audio-to-text-mapper/2023-09-21/00/checkpoint-15000/pytorch_model.bin",
+        "dataset-name": "flickr8k",
+    },
+    "00-yfacc-best": {
+        "model-path": "output/audio-to-text-mapper/00-yfacc/checkpoint-1500/pytorch_model.bin",
+        "dataset-name": "yfacc",
     },
 }
 
@@ -41,15 +47,15 @@ CONFIGS_PREDICT = {
 @click.option("-p", "--config-predict", "config_predict_name")
 def main(config_name, config_predict_name):
     audio_model_name = "wav2vec2-xls-r-2b"
-    dataset_name = "flickr8k"
     split = "test"
-
-    dataset = Flickr8kDataset(split=split)
-    num_samples = len(dataset)
-    load_audio_feats = AudioFeaturesLoader(audio_model_name, dataset_name, split)
 
     config = CONFIGS[config_name]
     config_predict = CONFIGS_PREDICT[config_predict_name]
+
+    dataset_name = config_predict["dataset-name"]
+    dataset = DATASETS[dataset_name](split=split)
+    num_samples = len(dataset)
+    load_audio_feats = AudioFeaturesLoader(audio_model_name, dataset_name, split)
 
     model_path = config_predict["model-path"]
     model, tokenizer = get_audio_to_text_mapper(**config["model"])
