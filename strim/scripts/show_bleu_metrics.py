@@ -2,6 +2,8 @@ import json
 import pdb
 import random
 
+from itertools import groupby
+
 import numpy as np
 from sacrebleu import BLEU
 
@@ -35,8 +37,8 @@ def compute_score_inter_annotators(dataset, num_refs=1):
     assert 1 <= num_refs <= 4
 
     bleu = BLEU(lowercase=True, effective_order=True)
-    image_keys_to_captions = dataset.get_image_key_to_captions()
-    caption_groups = list(image_keys_to_captions.values())
+    image_key_to_captions = dataset.get_image_key_to_captions()
+    caption_groups = list(image_key_to_captions.values())
 
     def pick_hyp_and_refs(group):
         random.shuffle(group)
@@ -51,7 +53,7 @@ def compute_score_image_captions(dataset, load_generated_captions, num_refs=1):
     assert 1 <= num_refs <= 5
 
     bleu = BLEU(lowercase=True, effective_order=True)
-    image_keys_to_captions = dataset.get_image_key_to_captions()
+    image_key_to_captions = dataset.get_image_key_to_captions()
 
     def pick_hyp(key):
         sample = {"key-image": key}
@@ -60,12 +62,12 @@ def compute_score_image_captions(dataset, load_generated_captions, num_refs=1):
         return hyps[0]
 
     def pick_refs(key):
-        refs = image_keys_to_captions[key]
+        refs = image_key_to_captions[key]
         random.shuffle(refs)
         return refs[:num_refs]
 
-    hyps = [pick_hyp(key) for key in image_keys_to_captions.keys()]
-    refs = [pick_refs(key) for key in image_keys_to_captions.keys()]
+    hyps = [pick_hyp(key) for key in image_key_to_captions.keys()]
+    refs = [pick_refs(key) for key in image_key_to_captions.keys()]
     return bleu_score_corpus(bleu, hyps, refs)
 
 
@@ -85,6 +87,49 @@ def compute_score_predictions(dataset, predictions):
     idxs = list(range(num_samples))
     idxs = random.sample(idxs, k=num_samples // 5)
     hyps, refs = zip(*[pick_hyp_and_refs(i) for i in idxs])
+    return bleu_score_corpus(bleu, hyps, refs)
+
+
+def compute_score_predictions_lenient(dataset, predictions, num_refs=1):
+    assert 1 <= num_refs <= 5
+
+    bleu = BLEU(lowercase=True, effective_order=True)
+    image_key_to_captions = dataset.get_image_key_to_captions()
+    image_key_to_predictions = {
+        key: list(group)
+        for key, group in groupby(predictions, key=lambda p: p["key-audio"][0])
+    }
+
+    def pick_hyp_and_refs(key):
+        preds = image_key_to_predictions[key]
+        random.shuffle(preds)
+        pred = preds[0]
+
+        i = pred["key-audio"][1]
+        hyp = pred["text-prediction"]
+
+        # Select the reference corresponding to the prediction and `num_refs - 1` others.
+        refs_all = image_key_to_captions[key]
+        ref_corr = refs_all[i]
+        refs_rest = [r for j, r in enumerate(refs_all) if j != i]
+        refs = [ref_corr] + random.sample(refs_rest, k=num_refs - 1)
+
+        # if num_refs == 5:
+        #     assert set(refs) == set(refs_all)
+
+        return hyp, refs
+
+    image_keys_c = image_key_to_captions.keys()
+    image_keys_p = image_key_to_predictions.keys()
+
+    if set(image_keys_c) != set(image_keys_p):
+        print("WARN Image keys between captions and prediction do not match.")
+        print(".... Using the predictions keys.")
+
+    image_keys = image_keys_p
+
+    hyps_and_refs = [pick_hyp_and_refs(key) for key in image_keys]
+    hyps, refs = zip(*hyps_and_refs)
     return bleu_score_corpus(bleu, hyps, refs)
 
 
@@ -121,14 +166,52 @@ def main():
     print(" ".join(scores_to_print))
     print()
 
-    print("# BLEU score for predictions")
+    # print("# BLEU score for predictions")
+    # num_repeats = 5
+    # # path_predictions = "output/audio-to-text-mapper/predictions/00-00-best-2023-09-21.json"
+    # path_predictions = "output/audio-to-text-mapper/predictions/00-00-best-2023-11-11.json"
+    # with open(path_predictions, "r") as f:
+    #     predictions = json.load(f)
+    # scores = [compute_score_predictions(dataset, predictions) for _ in range(num_repeats)]
+    # print("num. refs: {:d} · BLEU: {:.2f}±{:.1f}".format(1, np.mean(scores), 2 * np.std(scores)))
+    # print()
+
+    print("# BLEU score for English predictions (lenient)")
     num_repeats = 5
-    # path_predictions = "output/audio-to-text-mapper/predictions/00-00-best-2023-09-21.json"
+
     path_predictions = "output/audio-to-text-mapper/predictions/00-00-best-2023-11-11.json"
     with open(path_predictions, "r") as f:
         predictions = json.load(f)
-    scores = [compute_score_predictions(dataset, predictions) for _ in range(num_repeats)]
-    print("num. refs: {:d} · BLEU: {:.2f}±{:.1f}".format(1, np.mean(scores), 2 * np.std(scores)))
+
+    scores_to_print = []
+    for num_refs in range(1, 6):
+        scores = [
+            compute_score_predictions_lenient(dataset, predictions, num_refs)
+            for _ in range(num_repeats)
+        ]
+        score_to_print = "{:.2f}±{:.1f}".format(np.mean(scores), 2 * np.std(scores))
+        scores_to_print.append(score_to_print)
+        print("num. refs: {:d} · BLEU: {}".format(num_refs, score_to_print))
+    print(" ".join(scores_to_print))
+    print()
+
+    print("# BLEU score for Yorùbá predictions (lenient)")
+    num_repeats = 5
+
+    path_predictions = "output/audio-to-text-mapper/predictions/00-yfacc-00-yfacc-best.json"
+    with open(path_predictions, "r") as f:
+        predictions = json.load(f)
+
+    scores_to_print = []
+    for num_refs in range(1, 6):
+        scores = [
+            compute_score_predictions_lenient(dataset, predictions, num_refs)
+            for _ in range(num_repeats)
+        ]
+        score_to_print = "{:.2f}±{:.1f}".format(np.mean(scores), 2 * np.std(scores))
+        scores_to_print.append(score_to_print)
+        print("num. refs: {:d} · BLEU: {}".format(num_refs, score_to_print))
+    print(" ".join(scores_to_print))
     print()
 
 
