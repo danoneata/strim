@@ -137,34 +137,38 @@ def main():
     split = "test"
     dataset = Flickr8kDataset(split=split)
 
-    print("# BLEU score for inter-annotators")
-    num_repeats = 5
-    scores_to_print = []
-    for num_refs in range(1, 5):
-        scores = [
-            compute_score_inter_annotators(dataset, num_refs)
-            for _ in range(num_repeats)
-        ]
-        score_to_print = "{:.2f}±{:.1f}".format(np.mean(scores), 2 * np.std(scores))
-        scores_to_print.append(score_to_print)
-        print("num. refs: {:d} · BLEU: {}".format(num_refs, score_to_print))
-    print(" ".join(scores_to_print))
-    print()
+    # print("# BLEU score for true image captions (inter-annotators)")
+    # num_repeats = 5
+    # scores_to_print = []
+    # for num_refs in range(1, 5):
+    #     scores = [
+    #         compute_score_inter_annotators(dataset, num_refs)
+    #         for _ in range(num_repeats)
+    #     ]
+    #     score_to_print = "{:.2f}±{:.1f}".format(np.mean(scores), 2 * np.std(scores))
+    #     scores_to_print.append(score_to_print)
+    #     print("num. refs: {:d} · BLEU: {}".format(num_refs, score_to_print))
+    # print(" ".join(scores_to_print))
+    # print()
 
-    print("# BLEU score for image captions")
-    load_generated_captions = GeneratedCaptionsLoader("blip-base", "flickr8k", split)
-    num_repeats = 5
-    scores_to_print = []
-    for num_refs in range(1, 6):
-        scores = [
-            compute_score_image_captions(dataset, load_generated_captions, num_refs)
-            for _ in range(num_repeats)
-        ]
-        score_to_print = "{:.2f}±{:.1f}".format(np.mean(scores), 2 * np.std(scores))
-        scores_to_print.append(score_to_print)
-        print("num. refs: {:d} · BLEU: {}".format(num_refs, score_to_print))
-    print(" ".join(scores_to_print))
-    print()
+    def evaluate_generated_image_captions(model_name):
+        print("# BLEU score for generated image captions: " + model_name)
+        load_generated_captions = GeneratedCaptionsLoader(model_name, "flickr8k", split)
+        num_repeats = 5
+        scores_to_print = []
+        for num_refs in range(1, 6):
+            scores = [
+                compute_score_image_captions(dataset, load_generated_captions, num_refs)
+                for _ in range(num_repeats)
+            ]
+            score_to_print = "{:.2f}±{:.1f}".format(np.mean(scores), 2 * np.std(scores))
+            scores_to_print.append(score_to_print)
+            print("num. refs: {:d} · BLEU: {}".format(num_refs, score_to_print))
+        print(" ".join(scores_to_print))
+        print()
+
+    evaluate_generated_image_captions("blip-base")
+    evaluate_generated_image_captions("blip-large")
 
     # print("# BLEU score for predictions")
     # num_repeats = 5
@@ -176,43 +180,43 @@ def main():
     # print("num. refs: {:d} · BLEU: {:.2f}±{:.1f}".format(1, np.mean(scores), 2 * np.std(scores)))
     # print()
 
-    print("# BLEU score for English predictions (lenient)")
-    num_repeats = 5
+    # print("# BLEU score for English predictions (lenient)")
+    # num_repeats = 5
 
-    path_predictions = "output/audio-to-text-mapper/predictions/00-00-best-2023-11-11.json"
-    with open(path_predictions, "r") as f:
-        predictions = json.load(f)
+    # path_predictions = "output/audio-to-text-mapper/predictions/00-00-best-2023-11-11.json"
+    # with open(path_predictions, "r") as f:
+    #     predictions = json.load(f)
 
-    scores_to_print = []
-    for num_refs in range(1, 6):
-        scores = [
-            compute_score_predictions_lenient(dataset, predictions, num_refs)
-            for _ in range(num_repeats)
-        ]
-        score_to_print = "{:.2f}±{:.1f}".format(np.mean(scores), 2 * np.std(scores))
-        scores_to_print.append(score_to_print)
-        print("num. refs: {:d} · BLEU: {}".format(num_refs, score_to_print))
-    print(" ".join(scores_to_print))
-    print()
+    # scores_to_print = []
+    # for num_refs in range(1, 6):
+    #     scores = [
+    #         compute_score_predictions_lenient(dataset, predictions, num_refs)
+    #         for _ in range(num_repeats)
+    #     ]
+    #     score_to_print = "{:.2f}±{:.1f}".format(np.mean(scores), 2 * np.std(scores))
+    #     scores_to_print.append(score_to_print)
+    #     print("num. refs: {:d} · BLEU: {}".format(num_refs, score_to_print))
+    # print(" ".join(scores_to_print))
+    # print()
 
-    print("# BLEU score for Yorùbá predictions (lenient)")
-    num_repeats = 5
+    # print("# BLEU score for Yorùbá predictions (lenient)")
+    # num_repeats = 5
 
-    path_predictions = "output/audio-to-text-mapper/predictions/00-yfacc-00-yfacc-best.json"
-    with open(path_predictions, "r") as f:
-        predictions = json.load(f)
+    # path_predictions = "output/audio-to-text-mapper/predictions/00-yfacc-00-yfacc-best.json"
+    # with open(path_predictions, "r") as f:
+    #     predictions = json.load(f)
 
-    scores_to_print = []
-    for num_refs in range(1, 6):
-        scores = [
-            compute_score_predictions_lenient(dataset, predictions, num_refs)
-            for _ in range(num_repeats)
-        ]
-        score_to_print = "{:.2f}±{:.1f}".format(np.mean(scores), 2 * np.std(scores))
-        scores_to_print.append(score_to_print)
-        print("num. refs: {:d} · BLEU: {}".format(num_refs, score_to_print))
-    print(" ".join(scores_to_print))
-    print()
+    # scores_to_print = []
+    # for num_refs in range(1, 6):
+    #     scores = [
+    #         compute_score_predictions_lenient(dataset, predictions, num_refs)
+    #         for _ in range(num_repeats)
+    #     ]
+    #     score_to_print = "{:.2f}±{:.1f}".format(np.mean(scores), 2 * np.std(scores))
+    #     scores_to_print.append(score_to_print)
+    #     print("num. refs: {:d} · BLEU: {}".format(num_refs, score_to_print))
+    # print(" ".join(scores_to_print))
+    # print()
 
 
 if __name__ == "__main__":

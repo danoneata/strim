@@ -7,7 +7,7 @@ In this project we distil the knowledge of an image captioning system to a speec
 Extract image features and generate image captions:
 ```bash
 for s in train dev test; do
-    python strim/scripts/run_image_captioner.py --split $s
+    python strim/scripts/run_image_captioner.py -m blip-base -d flickr8k --split $s
 done
 ```
 
