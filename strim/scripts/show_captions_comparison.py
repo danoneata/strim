@@ -47,6 +47,7 @@ hdf5_files = [h5py.File(path_hdf5_image.format(model), "r") for model in IMAGE_M
 keys = list(image_key_to_captions.keys())
 random.shuffle(keys)
 keys = keys[:30]
+# keys.insert(0, "2866254827_9a8f592017")   # example in the paper
 
 num_cols = 3
 num_models = len(IMAGE_MODELS)
