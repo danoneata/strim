@@ -124,18 +124,22 @@ class GeneratedCaptionsLoader:
         return texts
 
 
-class DatasetForTrainer:
+class CaptionsDatasetForTrainer:
     def __init__(self, *, name, split):
         dataset_name = name
-        audio_model_name = "wav2vec2-xls-r-2b"
-        image_model_name = "blip-base"
-        self.num_generated_captions_per_image = 5
         self.dataset = DATASETS[dataset_name](split=split)
-        self.load_generated_captions = GeneratedCaptionsLoader(
-            image_model_name, dataset_name, split
-        )
+
+        # inputs
+        audio_model_name = "wav2vec2-xls-r-2b"
         self.load_audio_feats = AudioFeaturesLoader(
             audio_model_name, dataset_name, split
+        )
+
+        # targets: captions
+        image_model_name = "blip-base-diverse"
+        self.num_generated_captions_per_image = 5
+        self.load_generated_captions = GeneratedCaptionsLoader(
+            image_model_name, dataset_name, split
         )
 
     def __len__(self):
@@ -150,15 +154,42 @@ class DatasetForTrainer:
         audio_feats = self.load_audio_feats(sample)
         target_text = self.load_generated_captions(sample)[caption_idx]
 
-        # text = sample["text"].lower()
-        # words = text.split()
-        # words = [w for w in words if w != "."]
-        # text = " ".join(words)
+        return {
+            "encoder_outputs": audio_feats,
+            "labels": target_text,
+        }
+
+
+class TranscriptsDatasetForTrainer:
+    def __init__(self, *, name, split):
+        dataset_name = name
+        self.dataset = DATASETS[dataset_name](split=split)
+
+        audio_model_name = "wav2vec2-xls-r-2b"
+        self.load_audio_feats = AudioFeaturesLoader(
+            audio_model_name, dataset_name, split
+        )
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, i):
+        sample = self.dataset[i]
+
+        audio_feats = self.load_audio_feats(sample)
+        target_text = sample["text"].lower()
+        target_text = " ".join(w for w in target_text.split() if w != ".")
 
         return {
             "encoder_outputs": audio_feats,
             "labels": target_text,
         }
+
+
+DATASETS_FOR_TRAINER = {
+    "captions": CaptionsDatasetForTrainer,
+    "transcripts": TranscriptsDatasetForTrainer,
+}
 
 
 MODELS = {
@@ -189,6 +220,7 @@ CONFIGS = {
     "00": {
         "model": MODELS["tiny"],
         "dataset": {
+            "targets": "captions",
             "name": "flickr8k",
         },
         "training": {
@@ -216,6 +248,7 @@ CONFIGS = {
         "model": MODELS["tiny"],
         "init-model-path": "output/audio-to-text-mapper/00/checkpoint-16500/pytorch_model.bin",
         "dataset": {
+            "targets": "captions",
             "name": "yfacc",
         },
         "training": {
@@ -243,6 +276,7 @@ CONFIGS = {
     "01": {
         "model": MODELS["tiny"],
         "dataset": {
+            "targets": "captions",
             "name": "flickr8k",
         },
         "training": {
@@ -265,12 +299,68 @@ CONFIGS = {
             "load_best_model_at_end": True,
         },
     },
+    "00-transcripts": {
+        "model": MODELS["tiny"],
+        "dataset": {
+            "targets": "transcripts",
+            "name": "flickr8k",
+        },
+        "training": {
+            "num_train_epochs": 50,
+            "per_device_train_batch_size": 20,
+            "learning_rate": 1e-4,
+            "gradient_accumulation_steps": 1,
+            "gradient_checkpointing": False,
+            "fp16": False,
+            # "save_strategy": "steps",
+            # "logging_strategy": "steps",
+            "warmup_steps": 400,
+            "logging_steps": 20,
+            "save_total_limit": 1,
+            "eval_steps": 100,
+            "save_steps": 500,
+            "evaluation_strategy": "steps",
+            "overwrite_output_dir": True,
+            "predict_with_generate": True,
+            "generation_num_beams": 1,
+            "load_best_model_at_end": True,
+        },
+    },
+    "00-yfacc-transcripts": {
+        "model": MODELS["tiny"],
+        "init-model-path": "output/audio-to-text-mapper/00-transcripts/checkpoint-16000/pytorch_model.bin",
+        "dataset": {
+            "targets": "transcripts",
+            "name": "yfacc",
+        },
+        "training": {
+            "num_train_epochs": 50,
+            "per_device_train_batch_size": 20,
+            "learning_rate": 1e-4,
+            "gradient_accumulation_steps": 1,
+            "gradient_checkpointing": False,
+            "fp16": False,
+            # "save_strategy": "steps",
+            # "logging_strategy": "steps",
+            "warmup_steps": 400,
+            "logging_steps": 20,
+            "save_total_limit": 1,
+            "eval_steps": 100,
+            "save_steps": 500,
+            "evaluation_strategy": "steps",
+            "overwrite_output_dir": True,
+            "predict_with_generate": True,
+            "generation_num_beams": 1,
+            "load_best_model_at_end": True,
+        },
+    },
 }
 
 
 def my_data_collator(tokenizer, data) -> Dict[str, torch.Tensor]:
     input_features = [datum["encoder_outputs"] for datum in data]
     input_features = pad_sequence(input_features, batch_first=True)
+    pdb.set_trace()
 
     padding_mask = [
         torch.full((datum["encoder_outputs"].shape[0],), fill_value=1) for datum in data
@@ -318,6 +408,9 @@ def initialize_model(model, model_path):
 @click.option("-c", "--config", "config_name")
 def main(config_name):
     config = CONFIGS[config_name]
+
+    targets = config["dataset"].pop("targets")
+    DatasetForTrainer = DATASETS_FOR_TRAINER[targets]
 
     tr_dataset = DatasetForTrainer(**config["dataset"], split="train")
     te_dataset = DatasetForTrainer(**config["dataset"], split="dev")

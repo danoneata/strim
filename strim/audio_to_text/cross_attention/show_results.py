@@ -34,9 +34,17 @@ def bullet_list(items):
 
 def main():
     PRED_TYPE_INFO = {
+        "English (transcripts)": {
+            "results-path": "output/audio-to-text-mapper/predictions/00-transcripts-00-transcripts-best.json",
+            "dataset": "flickr8k",
+        },
         "English": {
             "results-path": "output/audio-to-text-mapper/predictions/00-00-best-2023-11-11.json",
             "dataset": "flickr8k",
+        },
+        "Yorùbá (transcripts)": {
+            "results-path": "output/audio-to-text-mapper/predictions/00-yfacc-transcripts-00-yfacc-transcripts-best.json",
+            "dataset": "yfacc",
         },
         "Yorùbá": {
             "results-path": "output/audio-to-text-mapper/predictions/00-yfacc-00-yfacc-best.json",
@@ -95,7 +103,7 @@ def main():
     for i in selected_idxs:
         sample = dataset[i]
 
-        if pred_type == "Yorùbá":
+        if pred_type.startswith("Yorùbá"):
             true_text_yo = "- `true/yo` · " + fmt_txt(sample["text-yo"])
         else:
             true_text_yo = ""
@@ -105,7 +113,8 @@ def main():
         true_texts = [fmt_txt(c) for c in image_key_to_captions[sample["key-image"]]]
 
         st.markdown(
-            "image id: `{}` · caption id: {} ◇ BLUE: {:.1f}%".format(
+            "{} · image id: `{}` · caption id: {} ◇ BLUE: {:.1f}%".format(
+                i,
                 *sample["key-audio"],
                 bleu_scores[i],
             )

@@ -39,6 +39,14 @@ CONFIGS_PREDICT = {
         "model-path": "output/audio-to-text-mapper/00-yfacc/checkpoint-1500/pytorch_model.bin",
         "dataset-name": "yfacc",
     },
+    "00-transcripts-best": {
+        "model-path": "output/audio-to-text-mapper/00-transcripts/checkpoint-16000/pytorch_model.bin",
+        "dataset-name": "flickr8k",
+    },
+    "00-yfacc-transcripts-best": {
+        "model-path": "output/audio-to-text-mapper/00-yfacc-transcripts/checkpoint-500/pytorch_model.bin",
+        "dataset-name": "yfacc",
+    },
 }
 
 
