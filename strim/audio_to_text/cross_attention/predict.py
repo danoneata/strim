@@ -1,6 +1,8 @@
 import json
 import pdb
 
+from pathlib import Path
+
 import click
 import torch
 
@@ -35,6 +37,10 @@ CONFIGS_PREDICT = {
         "model-path": "output/audio-to-text-mapper/2023-09-21/00/checkpoint-15000/pytorch_model.bin",
         "dataset-name": "flickr8k",
     },
+    "00-blip2-opt-2.7b-diverse-best": {
+        "model-path": "output/audio-to-text-mapper/00-blip2-opt-2.7b-diverse/checkpoint-16000/pytorch_model.bin",
+        "dataset-name": "flickr8k",
+    },
     "00-yfacc-best": {
         "model-path": "output/audio-to-text-mapper/00-yfacc/checkpoint-1500/pytorch_model.bin",
         "dataset-name": "yfacc",
@@ -50,15 +56,31 @@ CONFIGS_PREDICT = {
 }
 
 
+def get_config_predict(name, tr_config_name):
+    try:
+        return CONFIGS_PREDICT[name]
+    except KeyError:
+        def get_model_path():
+            folder = Path(f"output/audio-to-text-mapper") / tr_config_name
+            subfolder, *rest = [f for f in folder.iterdir() if f.is_dir()]
+            assert not rest
+            return subfolder / "pytorch_model.bin"
+        config = CONFIGS[tr_config_name]
+        return {
+            "model-path": get_model_path(),
+            "dataset-name": config["dataset"]["name"],
+        }
+
+
 @click.command()
 @click.option("-c", "--config", "config_name")
-@click.option("-p", "--config-predict", "config_predict_name")
-def main(config_name, config_predict_name):
+@click.option("-p", "--config-predict", "config_predict_name", required=False)
+def main(config_name, config_predict_name=None):
     audio_model_name = "wav2vec2-xls-r-2b"
     split = "test"
 
     config = CONFIGS[config_name]
-    config_predict = CONFIGS_PREDICT[config_predict_name]
+    config_predict = get_config_predict(config_predict_name, config_name)
 
     dataset_name = config_predict["dataset-name"]
     dataset = DATASETS[dataset_name](split=split)
