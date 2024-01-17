@@ -16,6 +16,7 @@ from transformers import (
     AutoModel,
     AutoProcessor,
     AutoTokenizer,
+    EarlyStoppingCallback,
     PreTrainedModel,
     PretrainedConfig,
     Seq2SeqTrainer,
@@ -113,6 +114,8 @@ class AudioFeaturesLoader:
 
 class GeneratedCaptionsLoader:
     def __init__(self, image_model_name, dataset_name, split):
+        assert dataset_name in {"flickr8k", "yfacc"}
+        dataset_name = "flickr8k"
         self.image_h5 = h5py.File(
             H5_PATH_IMAGE.format(image_model_name, dataset_name, split), "r"
         )
@@ -125,7 +128,7 @@ class GeneratedCaptionsLoader:
 
 
 class CaptionsDatasetForTrainer:
-    def __init__(self, *, name, split):
+    def __init__(self, *, name, split, image_model_name="blip-base-diverse"):
         dataset_name = name
         self.dataset = DATASETS[dataset_name](split=split)
 
@@ -136,7 +139,8 @@ class CaptionsDatasetForTrainer:
         )
 
         # targets: captions
-        image_model_name = "blip-base-diverse"
+        # image_model_name = "blip-base-diverse"
+        # print(image_model_name)
         self.num_generated_captions_per_image = 5
         self.load_generated_captions = GeneratedCaptionsLoader(
             image_model_name, dataset_name, split
@@ -216,6 +220,29 @@ MODELS = {
 #     model = ProjectionModel(config)
 #     model.save_pretrained(m["encoder_name"])
 
+
+TRAIN_PARAMS = {
+    "per_device_train_batch_size": 20,
+    "learning_rate": 1e-4,
+    "gradient_accumulation_steps": 1,
+    "gradient_checkpointing": False,
+    "fp16": False,
+    # "save_strategy": "steps",
+    # "logging_strategy": "steps",
+    "warmup_steps": 400,
+    "logging_steps": 20,
+    "save_total_limit": 1,
+    "eval_steps": 100,
+    "save_steps": 500,
+    "evaluation_strategy": "steps",
+    "overwrite_output_dir": True,
+    "predict_with_generate": True,
+    "generation_num_beams": 1,
+    "load_best_model_at_end": True,
+    "dataloader_num_workers": 4,
+}
+
+
 CONFIGS = {
     "00": {
         "model": MODELS["tiny"],
@@ -225,23 +252,7 @@ CONFIGS = {
         },
         "training": {
             "num_train_epochs": 50,
-            "per_device_train_batch_size": 20,
-            "learning_rate": 1e-4,
-            "gradient_accumulation_steps": 1,
-            "gradient_checkpointing": False,
-            "fp16": False,
-            # "save_strategy": "steps",
-            # "logging_strategy": "steps",
-            "warmup_steps": 400,
-            "logging_steps": 20,
-            "save_total_limit": 1,
-            "eval_steps": 100,
-            "save_steps": 500,
-            "evaluation_strategy": "steps",
-            "overwrite_output_dir": True,
-            "predict_with_generate": True,
-            "generation_num_beams": 1,
-            "load_best_model_at_end": True,
+            **TRAIN_PARAMS,
         },
     },
     "00-yfacc": {
@@ -253,24 +264,7 @@ CONFIGS = {
         },
         "training": {
             "num_train_epochs": 25,
-            "per_device_train_batch_size": 20,
-            "learning_rate": 1e-4,
-            "gradient_accumulation_steps": 1,
-            "gradient_checkpointing": False,
-            "fp16": False,
-            # "save_strategy": "steps",
-            # "logging_strategy": "steps",
-            "warmup_steps": 400,
-            "logging_steps": 20,
-            "save_total_limit": 1,
-            "eval_steps": 100,
-            "save_steps": 500,
-            "evaluation_strategy": "steps",
-            "overwrite_output_dir": True,
-            "predict_with_generate": True,
-            "generation_num_beams": 1,
-            "load_best_model_at_end": True,
-            "dataloader_num_workers": 4,
+            **TRAIN_PARAMS,
         },
     },
     "01": {
@@ -281,22 +275,19 @@ CONFIGS = {
         },
         "training": {
             "num_train_epochs": 150,
-            "per_device_train_batch_size": 16,
-            "learning_rate": 1e-4,
-            "gradient_accumulation_steps": 1,
-            "fp16": False,
-            # "save_strategy": "steps",
-            # "logging_strategy": "steps",
-            "warmup_steps": 400,
-            "logging_steps": 20,
-            "save_total_limit": 1,
-            "eval_steps": 100,
-            "save_steps": 500,
-            "evaluation_strategy": "steps",
-            "overwrite_output_dir": True,
-            "predict_with_generate": True,
-            "generation_num_beams": 1,
-            "load_best_model_at_end": True,
+            **TRAIN_PARAMS,
+        },
+    },
+    "00-blip2-opt-2.7b-diverse": {
+        "model": MODELS["tiny"],
+        "dataset": {
+            "targets": "captions",
+            "name": "flickr8k",
+            "image_model_name": "blip2-opt-2.7b-diverse",
+        },
+        "training": {
+            "num_train_epochs": 50,
+            **TRAIN_PARAMS,
         },
     },
     "00-transcripts": {
@@ -307,23 +298,7 @@ CONFIGS = {
         },
         "training": {
             "num_train_epochs": 50,
-            "per_device_train_batch_size": 20,
-            "learning_rate": 1e-4,
-            "gradient_accumulation_steps": 1,
-            "gradient_checkpointing": False,
-            "fp16": False,
-            # "save_strategy": "steps",
-            # "logging_strategy": "steps",
-            "warmup_steps": 400,
-            "logging_steps": 20,
-            "save_total_limit": 1,
-            "eval_steps": 100,
-            "save_steps": 500,
-            "evaluation_strategy": "steps",
-            "overwrite_output_dir": True,
-            "predict_with_generate": True,
-            "generation_num_beams": 1,
-            "load_best_model_at_end": True,
+            **TRAIN_PARAMS,
         },
     },
     "00-yfacc-transcripts": {
@@ -335,32 +310,39 @@ CONFIGS = {
         },
         "training": {
             "num_train_epochs": 50,
-            "per_device_train_batch_size": 20,
-            "learning_rate": 1e-4,
-            "gradient_accumulation_steps": 1,
-            "gradient_checkpointing": False,
-            "fp16": False,
-            # "save_strategy": "steps",
-            # "logging_strategy": "steps",
-            "warmup_steps": 400,
-            "logging_steps": 20,
-            "save_total_limit": 1,
-            "eval_steps": 100,
-            "save_steps": 500,
-            "evaluation_strategy": "steps",
-            "overwrite_output_dir": True,
-            "predict_with_generate": True,
-            "generation_num_beams": 1,
-            "load_best_model_at_end": True,
+            **TRAIN_PARAMS,
         },
     },
 }
+
+IMAGE_CAPTIONING_MODELS = [
+    f"{m}-{g}"
+    for m in ["blip-base", "blip-large", "blip2-opt-2.7b", "git-base", "git-large"]
+    for g in ["topk", "sample", "diverse"]
+]
+
+early_stop = EarlyStoppingCallback(early_stopping_patience=10)
+
+for m in IMAGE_CAPTIONING_MODELS:
+    CONFIGS[f"yfacc-{m}"] = {
+        "model": MODELS["tiny"],
+        "init-model-path": "output/audio-to-text-mapper/00-blip2-opt-2.7b-diverse/checkpoint-16000/pytorch_model.bin",
+        "dataset": {
+            "targets": "captions",
+            "name": "yfacc",
+            "image_model_name": m,
+        },
+        "training": {
+            "num_train_epochs": 25,
+            **TRAIN_PARAMS,
+        },
+        "training-callbacks": [early_stop],
+    }
 
 
 def my_data_collator(tokenizer, data) -> Dict[str, torch.Tensor]:
     input_features = [datum["encoder_outputs"] for datum in data]
     input_features = pad_sequence(input_features, batch_first=True)
-    pdb.set_trace()
 
     padding_mask = [
         torch.full((datum["encoder_outputs"].shape[0],), fill_value=1) for datum in data
@@ -431,6 +413,7 @@ def main(config_name):
         train_dataset=tr_dataset,
         eval_dataset=te_dataset,
         data_collator=lambda features: my_data_collator(tokenizer, features),
+        callbacks=config.get("training-callbacks"),
         # tokenizer=feature_extractor,
     )
 

@@ -15,7 +15,7 @@ random.seed(101)
 
 
 def remove_punct(s):
-    return s.replace(".", "").replace(",", "").replace("?", "").replace("!", "")
+    return s.strip().replace(".", "").replace(",", "").replace("?", "").replace("!", "")
 
 
 def bleu_score_corpus_default(bleu, hyps, refs):
@@ -202,11 +202,13 @@ def main():
     # print("# BLEU score for English predictions (lenient)")
     # path_predictions = "output/audio-to-text-mapper/predictions/00-00-best-2023-11-11.json"
     # path_predictions = "output/audio-to-text-mapper/predictions/00-transcripts-00-transcripts-best.json"
+    # path_predictions = "output/audio-to-text-mapper/predictions/00-blip2-opt-2.7b-diverse-00-blip2-opt-2.7b-diverse-best.json"
     # eval_predictions(path_predictions)
 
-    print("# BLEU score for Yorùbá predictions (lenient)")
+    # print("# BLEU score for Yorùbá predictions (lenient)")
     # path_predictions = "output/audio-to-text-mapper/predictions/00-yfacc-00-yfacc-best.json"
-    path_predictions = "output/audio-to-text-mapper/predictions/00-yfacc-transcripts-00-yfacc-transcripts-best.json"
+    # path_predictions = "output/audio-to-text-mapper/predictions/00-yfacc-transcripts-00-yfacc-transcripts-best.json"
+    path_predictions = "output/audio-to-text-mapper/predictions/yfacc-blip2-opt-2.7b-diverse-None.json"
     eval_predictions(path_predictions)
 
 
