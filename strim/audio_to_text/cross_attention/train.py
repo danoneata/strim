@@ -317,7 +317,7 @@ CONFIGS = {
 
 IMAGE_CAPTIONING_MODELS = [
     f"{m}-{g}"
-    for m in ["blip-base", "blip-large", "blip2-opt-2.7b", "git-base", "git-large"]
+    for m in ["blip-base", "blip-large", "blip2-opt-2.7b", "git-base-coco", "git-large-coco"]
     for g in ["topk", "sample", "diverse"]
 ]
 
