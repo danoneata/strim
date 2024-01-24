@@ -122,9 +122,9 @@ def compute_score_predictions_lenient(dataset, predictions, num_refs=1):
     image_keys_c = image_key_to_captions.keys()
     image_keys_p = image_key_to_predictions.keys()
 
-    if set(image_keys_c) != set(image_keys_p):
-        print("WARN Image keys between captions and prediction do not match.")
-        print(".... Using the predictions keys.")
+    # if set(image_keys_c) != set(image_keys_p):
+    #     print("WARN Image keys between captions and prediction do not match.")
+    #     print(".... Using the predictions keys.")
 
     image_keys = image_keys_p
 
@@ -208,8 +208,14 @@ def main():
     # print("# BLEU score for Yorùbá predictions (lenient)")
     # path_predictions = "output/audio-to-text-mapper/predictions/00-yfacc-00-yfacc-best.json"
     # path_predictions = "output/audio-to-text-mapper/predictions/00-yfacc-transcripts-00-yfacc-transcripts-best.json"
-    path_predictions = "output/audio-to-text-mapper/predictions/yfacc-blip2-opt-2.7b-diverse-None.json"
-    eval_predictions(path_predictions)
+    # for model in "blip-base blip-large blip2-opt-2.7b git-base-coco git-large-coco".split():
+    #     path_predictions = f"output/audio-to-text-mapper/predictions/yfacc-{model}-diverse-None.json"
+    #     eval_predictions(path_predictions)
+    for g in "topk sample diverse".split():
+        path_predictions = f"output/audio-to-text-mapper/predictions/yfacc-git-base-coco-{g}-None.json"
+        eval_predictions(path_predictions)
+    # path_predictions = "output/audio-to-text-mapper/predictions/yfacc-blip2-opt-2.7b-diverse-None.json"
+    # eval_predictions(path_predictions)
 
 
 if __name__ == "__main__":
