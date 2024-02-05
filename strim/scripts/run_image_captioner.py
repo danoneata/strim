@@ -26,6 +26,16 @@ GENERATE_CONFIGS = {
         "num_beam_groups": 5,
         "diversity_penalty": 1.0,
     },
+    "sample1": {
+        "num_return_sequences": 5,
+        "num_beams": 1,
+        "do_sample": True,
+    },
+    "sample1x10": {
+        "num_return_sequences": 10,
+        "num_beams": 1,
+        "do_sample": True,
+    },
     "sample": {
         "num_return_sequences": 5,
         "num_beams": 5,
