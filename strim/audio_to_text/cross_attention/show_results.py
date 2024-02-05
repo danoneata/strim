@@ -42,12 +42,24 @@ def main():
             "results-path": "output/audio-to-text-mapper/predictions/00-00-best-2023-11-11.json",
             "dataset": "flickr8k",
         },
+        "English (git + diverse)": {
+            "results-path": "output/audio-to-text-mapper/predictions/flickr8k-git-large-coco-diverse-None.json",
+            "dataset": "flickr8k",
+        },
         "Yorùbá (transcripts)": {
             "results-path": "output/audio-to-text-mapper/predictions/00-yfacc-transcripts-00-yfacc-transcripts-best.json",
             "dataset": "yfacc",
         },
         "Yorùbá": {
             "results-path": "output/audio-to-text-mapper/predictions/00-yfacc-00-yfacc-best.json",
+            "dataset": "yfacc",
+        },
+        "Yorùbá (git + sample1)": {
+            "results-path": "output/audio-to-text-mapper/predictions/yfacc-git-large-coco-sample1-None.json",
+            "dataset": "yfacc",
+        },
+        "Yorùbá (git + diverse)": {
+            "results-path": "output/audio-to-text-mapper/predictions/yfacc-git-large-coco-diverse-None.json",
             "dataset": "yfacc",
         },
     }
