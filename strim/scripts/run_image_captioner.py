@@ -16,7 +16,7 @@ from transformers import (
 )
 
 
-from strim.data import Flickr8kDataset
+from strim.data import DATASETS
 
 
 GENERATE_CONFIGS = {
@@ -124,8 +124,7 @@ MODEL_CONFIGS = {
 @click.option("-d", "--dataset", "dataset_name", default="flickr8k")
 @click.option("-s", "--split", required=True)
 def main(model_name, generation_name, dataset_name, split):
-    assert dataset_name == "flickr8k"
-    dataset = Flickr8kDataset(split=split)
+    dataset = DATASETS[dataset_name](split=split)
     num_samples = len(dataset)
 
     config = MODEL_CONFIGS[model_name]
