@@ -318,7 +318,7 @@ CONFIGS = {
 IMAGE_CAPTIONING_MODELS = [
     f"{m}-{g}"
     for m in ["blip-base", "blip-large", "blip2-opt-2.7b", "git-base-coco", "git-large-coco"]
-    for g in ["topk", "sample", "diverse"]
+    for g in ["topk", "sample", "sample1", "diverse"]
 ]
 
 early_stop = EarlyStoppingCallback(early_stopping_patience=10)
@@ -339,10 +339,43 @@ for m in IMAGE_CAPTIONING_MODELS:
         "training-callbacks": [early_stop],
     }
 
+for m in IMAGE_CAPTIONING_MODELS:
+    CONFIGS[f"flickr8k-{m}"] = {
+        "model": MODELS["tiny"],
+        "dataset": {
+            "targets": "captions",
+            "name": "flickr8k",
+            "image_model_name": m,
+        },
+        "training": {
+            "num_train_epochs": 50,
+            **TRAIN_PARAMS,
+        },
+        "training-callbacks": [early_stop],
+    }
+
+
+for m in IMAGE_CAPTIONING_MODELS:
+    early_stop_50 = EarlyStoppingCallback(early_stopping_patience=50)
+    CONFIGS[f"flickr8k-{m}-early-stopping-50"] = {
+        "model": MODELS["tiny"],
+        "dataset": {
+            "targets": "captions",
+            "name": "flickr8k",
+            "image_model_name": m,
+        },
+        "training": {
+            "num_train_epochs": 50,
+            **TRAIN_PARAMS,
+        },
+        "training-callbacks": [early_stop_50],
+    }
+
 
 def my_data_collator(tokenizer, data) -> Dict[str, torch.Tensor]:
     input_features = [datum["encoder_outputs"] for datum in data]
     input_features = pad_sequence(input_features, batch_first=True)
+
 
     padding_mask = [
         torch.full((datum["encoder_outputs"].shape[0],), fill_value=1) for datum in data
