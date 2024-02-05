@@ -5,13 +5,17 @@ import h5py
 import numpy as np
 import streamlit as st
 
+from sacrebleu import BLEU
 from toolz import partition_all
 
 from strim.data import Flickr8kDataset
 
 
-MODELS = ["blip-base", "blip-large", "blip2-opt-2.7b"]
-GENERATIONS = ["topk", "sample", "diverse"]
+# MODELS = ["blip-base", "blip-large", "blip2-opt-2.7b", "git-base-coco", "git-large-coco"]
+# GENERATIONS = ["topk", "sample", "diverse"]
+
+MODELS = ["blip-large", "blip2-opt-2.7b", "git-large-coco"]
+GENERATIONS = ["topk", "sample1", "diverse"]
 URL_RESULTS = "https://docs.google.com/spreadsheets/d/1djZn7Nv0EFo8Ueivl--xyu0TaPrtmnmD8ZtVNQGq9RM/edit#gid=1760303189"
 
 code_quote = lambda s: "`{}`".format(s)
@@ -55,6 +59,16 @@ num_models = len(IMAGE_MODELS)
 
 fmt = lambda s: s.strip()
 
+bleu = BLEU(lowercase=True, effective_order=True)
+
+
+def compute_bleu_score(pred_text, true_texts):
+    def fmt_txt(s):
+        return s.replace(" .", "").lower()
+    pred = fmt_txt(pred_text)
+    true = [fmt_txt(c) for c in true_texts]
+    return bleu.sentence_score(pred, true).score
+
 
 for key in keys:
     true_captions = image_key_to_captions[key]
@@ -75,8 +89,10 @@ for key in keys:
         cols = st.columns(num_cols)
         for i, col in zip(group, cols):
             generated_captions = get_texts(hdf5_files[i], path)
+            blue_scores = [compute_bleu_score(caption, true_captions) for caption in generated_captions]
+            lines = [f"{score:.1f} · {fmt(caption)}" for score, caption in zip(blue_scores, generated_captions)]
             col.markdown("`{}`:".format(IMAGE_MODELS[i]))
-            col.markdown(bullet_list(map(fmt, generated_captions)))
+            col.markdown(bullet_list(lines))
             # col.markdown("---")
 
     st.markdown("---")
