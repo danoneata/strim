@@ -9,8 +9,9 @@ dataset = Flickr8kDataset(split=split)
 num_refs = 5
 num_repeats = 5
 
-model_names = ["blip-base", "blip-large", "blip2-opt-2.7b", "git-base-coco", "git-large-coco"]
-generation_types = ["topk", "sample", "diverse"]
+# model_names = ["blip-base", "blip-large", "blip2-opt-2.7b", "git-base-coco", "git-large-coco"]
+model_names = ["git-large-coco"]
+generation_types = ["topk", "sample1", "sample", "diverse"]
 
 
 load_generated_captions = {

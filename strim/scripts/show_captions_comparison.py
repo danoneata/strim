@@ -6,6 +6,7 @@ import numpy as np
 import streamlit as st
 
 from sacrebleu import BLEU
+from tabulate import tabulate
 from toolz import partition_all
 
 from strim.data import Flickr8kDataset
@@ -50,7 +51,7 @@ hdf5_files = [h5py.File(path_hdf5_image.format(model), "r") for model in IMAGE_M
 
 keys = list(image_key_to_captions.keys())
 random.shuffle(keys)
-keys = keys[:30]
+keys = keys[:1]
 # keys.insert(0, "2866254827_9a8f592017")   # example in the paper
 
 num_cols = 3
@@ -87,13 +88,19 @@ for key in keys:
 
     for group in partition_all(num_cols, idxs):
         cols = st.columns(num_cols)
+        cols_latex = []
         for i, col in zip(group, cols):
             generated_captions = get_texts(hdf5_files[i], path)
             blue_scores = [compute_bleu_score(caption, true_captions) for caption in generated_captions]
             lines = [f"{score:.1f} · {fmt(caption)}" for score, caption in zip(blue_scores, generated_captions)]
             col.markdown("`{}`:".format(IMAGE_MODELS[i]))
             col.markdown(bullet_list(lines))
+            col_latex = [r"\it " + fmt(caption) for caption in generated_captions]
+            cols_latex.append(col_latex)
             # col.markdown("---")
+
+        cols_latex = list(zip(*cols_latex))
+        print(tabulate(cols_latex, tablefmt="latex_raw"))
 
     st.markdown("---")
 

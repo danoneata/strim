@@ -151,24 +151,28 @@ def main():
     # print(" ".join(scores_to_print))
     # print()
 
-    # def evaluate_generated_image_captions(model_name):
-    #     print("# BLEU score for generated image captions: " + model_name)
-    #     load_generated_captions = GeneratedCaptionsLoader(model_name, "flickr8k", split)
-    #     num_repeats = 5
-    #     scores_to_print = []
-    #     for num_refs in range(1, 6):
-    #         scores = [
-    #             compute_score_image_captions(dataset, load_generated_captions, num_refs)
-    #             for _ in range(num_repeats)
-    #         ]
-    #         score_to_print = "{:.2f}±{:.1f}".format(np.mean(scores), 2 * np.std(scores))
-    #         scores_to_print.append(score_to_print)
-    #         print("num. refs: {:d} · BLEU: {}".format(num_refs, score_to_print))
-    #     print(" ".join(scores_to_print))
-    #     print()
+    def evaluate_generated_image_captions(model_name):
+        print("# BLEU score for generated image captions: " + model_name)
+        load_generated_captions = GeneratedCaptionsLoader(model_name, "flickr8k", split)
+        num_repeats = 5
+        scores_to_print = []
+        for num_refs in range(1, 6):
+            scores = [
+                compute_score_image_captions(dataset, load_generated_captions, num_refs)
+                for _ in range(num_repeats)
+            ]
+            score_to_print = "{:.2f}±{:.1f}".format(np.mean(scores), 2 * np.std(scores))
+            scores_to_print.append(score_to_print)
+            print("num. refs: {:d} · BLEU: {}".format(num_refs, score_to_print))
+        print(" ".join(scores_to_print))
+        print()
 
     # evaluate_generated_image_captions("blip-base")
     # evaluate_generated_image_captions("blip-large")
+    # evaluate_generated_image_captions("git-large-coco-sample1")
+
+    # for m in "blip-large blip2-opt-2.7b git-large-coco".split():
+    #     for g in "topk sample1 diverse".split():
 
     # print("# BLEU score for predictions")
     # num_repeats = 5
@@ -211,11 +215,41 @@ def main():
     # for model in "blip-base blip-large blip2-opt-2.7b git-base-coco git-large-coco".split():
     #     path_predictions = f"output/audio-to-text-mapper/predictions/yfacc-{model}-diverse-None.json"
     #     eval_predictions(path_predictions)
-    for g in "topk sample diverse".split():
-        path_predictions = f"output/audio-to-text-mapper/predictions/yfacc-git-base-coco-{g}-None.json"
-        eval_predictions(path_predictions)
+    # for m in "blip-large blip2-opt-2.7b git-large-coco".split():
+    #     for g in "topk sample1 diverse".split():
+    #         path_predictions = f"output/audio-to-text-mapper/predictions/yfacc-{m}-{g}-None.json"
+    #         eval_predictions(path_predictions)
     # path_predictions = "output/audio-to-text-mapper/predictions/yfacc-blip2-opt-2.7b-diverse-None.json"
     # eval_predictions(path_predictions)
+
+    # for m in "git-large-coco".split():
+    #     g = "topk"
+    #     evaluate_generated_image_captions(f"{m}-{g}")
+
+    # for m in "git-large-coco".split():
+    #     for g in "diverse".split():
+    #         path_predictions = f"output/audio-to-text-mapper/predictions/flickr8k-{m}-{g}-early-stopping-100-None.json"
+    #         eval_predictions(path_predictions)
+
+
+    # ms = "blip-large blip2-opt-2.7b git-large-coco"
+    # ms = "git-large-coco"
+    # gs = "topk sample1 diverse"
+    # # for m in ms.split():
+    # #     for g in gs.split():
+    # #         path_predictions = f"output/audio-to-text-mapper/predictions/yfacc-{m}-{g}-None.json"
+    # #         eval_predictions(path_predictions)
+    for n in "1 2 3 4 5 6 7 8 9 10".split():
+        eval_predictions(f"output/audio-to-text-mapper/predictions/yfacc-git-large-coco-sample1x10-num-captions-{n}-None.json")
+
+    # for g in "diverse sample1".split():
+    #     path_predictions = f"output/audio-to-text-mapper/predictions/flickr8k-{m}-{g}-early-stopping-50-None.json"
+    #     eval_predictions(path_predictions)
+
+    # for m in "git-large-coco".split():
+    #     for g in "topk sample1".split():
+    #         path_predictions = f"output/audio-to-text-mapper/predictions/yfacc-{m}-{g}-None.json"
+    #         eval_predictions(path_predictions)
 
 
 if __name__ == "__main__":
