@@ -10,7 +10,7 @@ The main idea of the paper is to distil the knowledge of an image captioning sys
 When the audio is in a foreign language the system will perform speech translation, outputting an English paraphrase.
 This process is illustrated schematically in the figure below:
 
-<img width="300" href="vignette.png"></img>
+<img width="400" src="vignette.png"></img>
 
 # Setup
 
