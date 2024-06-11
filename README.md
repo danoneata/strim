@@ -51,3 +51,10 @@ python strim/audio_to_text/cross_attention/train.py -c tiny
 accelerate launch strim/audio_to_text/cross_attention/train.py -c 00-blip2-diverse
 ```
 
+# Miscellany
+
+Apart from the cross-attention-based audio-to-text network (in `strim/audio_to_text/cross_attention`),
+the repository implements two other approaches that were briefly discussed in the paper, but which gave worse results:
+
+- **Prompt tuning** (in `strim/audio_to_text/prompt_tuning`) maps the audio to a soft prompt to guide the decoding towards translation.
+- **Audio to image mapper** (in `strim/audio_to_image`) maps the audio to image features (instead of text) and use those as input to a frozen pretrained image captioning system.
