@@ -128,7 +128,14 @@ class GeneratedCaptionsLoader:
 
 
 class CaptionsDatasetForTrainer:
-    def __init__(self, *, name, split, image_model_name="blip-base-diverse"):
+    def __init__(
+        self,
+        *,
+        name,
+        split,
+        image_model_name="blip-base-diverse",
+        num_generated_captions_per_image=5,
+    ):
         dataset_name = name
         self.dataset = DATASETS[dataset_name](split=split)
 
@@ -141,7 +148,7 @@ class CaptionsDatasetForTrainer:
         # targets: captions
         # image_model_name = "blip-base-diverse"
         # print(image_model_name)
-        self.num_generated_captions_per_image = 5
+        self.num_generated_captions_per_image = num_generated_captions_per_image
         self.load_generated_captions = GeneratedCaptionsLoader(
             image_model_name, dataset_name, split
         )
