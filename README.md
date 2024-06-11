@@ -6,8 +6,8 @@ This repository contains the code corresponding to our paper:
 > Translating speech with just images.
 > Interspeech, 2024.
 
-The main idea of the paper is to distil the knowledge of an image captioning system into a speech paraphrasing system.
-When the audio is in a foreign language the system will perform speech translation, outputting an English paraphrase.
+The main idea of the paper is to distil the knowledge of an image captioning system into a speech transcription system.
+When the audio is in a foreign language, the system will perform speech translation, outputting an English paraphrase of the spoken utterance.
 This process is illustrated schematically in the figure below:
 
 <img width="400" src="vignette.png"></img>
