@@ -44,17 +44,25 @@ for s in train dev test; do
     python strim/scripts/extract_audio_features.py --split $s
 done
 ```
-3. Learn a mapping network from audio features to image features:
+3. Learn the network to map audio features to corresponding generated captions:
 ```bash
-python strim/audio_to_text/cross_attention/train.py -c tiny
+python strim/audio_to_text/cross_attention/train.py -c flickr8k-blip-base
 # or use accelerate for multi-GPU training
-accelerate launch strim/audio_to_text/cross_attention/train.py -c 00-blip2-diverse
+accelerate launch strim/audio_to_text/cross_attention/train.py -c flickr8k-blip-base
 ```
+4. Predict using the learnt model:
+```bash
+python strim/audio_to_text/cross_attention/predict.py -c flickr8k-blip-base
+```
+
+Evaluation scripts are available in:
+- `strim/scripts/show_bleu_metrics.py`, which generates results for Table 1 in the paper;
+- `strim/scripts/show_sensitivity_analysis_captioning.py`, which generates results for Figure 5 in the paper.
 
 # Miscellany
 
 Apart from the cross-attention-based audio-to-text network (in `strim/audio_to_text/cross_attention`),
 the repository implements two other approaches that were briefly discussed in the paper, but which gave worse results:
 
-- **Prompt tuning** (in `strim/audio_to_text/prompt_tuning`) maps the audio to a soft prompt to guide the decoding towards translation.
-- **Audio to image mapper** (in `strim/audio_to_image`) maps the audio to image features (instead of text) and use those as input to a frozen pretrained image captioning system.
+- **Prompt tuning** (in `strim/audio_to_text/prompt_tuning`), which maps the audio to a soft prompt to guide the decoding towards translation.
+- **Audio to image mapper** (in `strim/audio_to_image`), which maps the audio to image features (instead of text) and uses those as input to a pretrained image captioning system.
