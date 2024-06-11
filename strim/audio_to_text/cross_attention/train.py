@@ -115,10 +115,10 @@ class AudioFeaturesLoader:
 class GeneratedCaptionsLoader:
     def __init__(self, image_model_name, dataset_name, split):
         assert dataset_name in {"flickr8k", "yfacc"}
-        dataset_name = "flickr8k"
-        self.image_h5 = h5py.File(
-            H5_PATH_IMAGE.format(image_model_name, dataset_name, split), "r"
-        )
+        path = H5_PATH_IMAGE.format(image_model_name, dataset_name, split)
+        if dataset_name == "yfacc" and not os.path.exists(path):
+            path = H5_PATH_IMAGE.format(image_model_name, "flickr8k", split)
+        self.image_h5 = h5py.File(path, "r")
 
     def __call__(self, sample):
         path_text = sample["key-image"] + "/" + "generated-captions"
