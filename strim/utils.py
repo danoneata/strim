@@ -1,7 +1,10 @@
 from typing import Callable, List, TypeVar, Tuple
+
 import json
 import os
+
 import numpy as np
+import pandas as pd
 
 
 A = TypeVar("A")
@@ -41,4 +44,13 @@ def cache_json(path, func, *args, **kwargs):
         result = func(*args, **kwargs)
         with open(path, "w") as f:
             json.dump(result, f)
+        return result
+
+
+def cache_df(path, func, *args, **kwargs):
+    try:
+        return pd.read_pickle(path)
+    except FileNotFoundError:
+        result = func(*args, **kwargs)
+        result.to_pickle(path)
         return result
