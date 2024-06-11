@@ -324,7 +324,13 @@ CONFIGS = {
 
 IMAGE_CAPTIONING_MODELS = [
     f"{m}-{g}"
-    for m in ["blip-base", "blip-large", "blip2-opt-2.7b", "git-base-coco", "git-large-coco"]
+    for m in [
+        "blip-base",
+        "blip-large",
+        "blip2-opt-2.7b",
+        "git-base-coco",
+        "git-large-coco",
+    ]
     for g in ["topk", "sample", "sample1", "diverse"]
 ]
 
@@ -345,6 +351,26 @@ for m in IMAGE_CAPTIONING_MODELS:
         },
         "training-callbacks": [early_stop],
     }
+
+
+for n in range(11):
+    m = "git-large-coco-sample1x10"
+    CONFIGS[f"yfacc-{m}-num-captions-{n}"] = {
+        "model": MODELS["tiny"],
+        "init-model-path": "output/audio-to-text-mapper/00-blip2-opt-2.7b-diverse/checkpoint-16000/pytorch_model.bin",
+        "dataset": {
+            "targets": "captions",
+            "name": "yfacc",
+            "image_model_name": m,
+            "num_generated_captions_per_image": n,
+        },
+        "training": {
+            "num_train_epochs": 25,
+            **TRAIN_PARAMS,
+        },
+        "training-callbacks": [early_stop],
+    }
+
 
 for m in IMAGE_CAPTIONING_MODELS:
     CONFIGS[f"flickr8k-{m}"] = {
@@ -379,10 +405,43 @@ for m in IMAGE_CAPTIONING_MODELS:
     }
 
 
+for m in IMAGE_CAPTIONING_MODELS:
+    early_stop_50 = EarlyStoppingCallback(early_stopping_patience=50)
+    CONFIGS[f"yfacc-{m}-early-stopping-50"] = {
+        "model": MODELS["tiny"],
+        "init-model-path": "output/audio-to-text-mapper/00-blip2-opt-2.7b-diverse/checkpoint-16000/pytorch_model.bin",
+        "dataset": {
+            "targets": "captions",
+            "name": "yfacc",
+            "image_model_name": m,
+        },
+        "training": {
+            "num_train_epochs": 25,
+            **TRAIN_PARAMS,
+        },
+        "training-callbacks": [early_stop_50],
+    }
+
+for m in IMAGE_CAPTIONING_MODELS:
+    early_stop_100 = EarlyStoppingCallback(early_stopping_patience=100)
+    CONFIGS[f"flickr8k-{m}-early-stopping-100"] = {
+        "model": MODELS["tiny"],
+        "dataset": {
+            "targets": "captions",
+            "name": "flickr8k",
+            "image_model_name": m,
+        },
+        "training": {
+            "num_train_epochs": 50,
+            **TRAIN_PARAMS,
+        },
+        "training-callbacks": [early_stop_100],
+    }
+
+
 def my_data_collator(tokenizer, data) -> Dict[str, torch.Tensor]:
     input_features = [datum["encoder_outputs"] for datum in data]
     input_features = pad_sequence(input_features, batch_first=True)
-
 
     padding_mask = [
         torch.full((datum["encoder_outputs"].shape[0],), fill_value=1) for datum in data
